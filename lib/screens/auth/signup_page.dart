@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../api/user.api.dart';
 import '../../utils/colors.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import 'verification_page.dart'; // You'll need to create this
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -12,23 +14,48 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController(); // ✅ Added name field
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
-  String _selectedCountry = 'Select country';
+  final _passwordController = TextEditingController(); // ✅ Added password field
+  final _confirmPasswordController = TextEditingController(); // ✅ Added confirm password
+  
+  String _selectedCountry = 'Rwanda'; // ✅ Default to Rwanda
   String _selectedCountryCode = '+250';
   bool _agreeToTerms = false;
   bool _isLoading = false;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  String? _validateName(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Name is required';
+    }
+    if (value.trim().length < 2) {
+      return 'Name must be at least 2 characters';
+    }
+    return null;
   }
 
   String? _validatePhone(String? value) {
     if (value == null || value.isEmpty) {
       return 'Phone number is required';
+    }
+    // Remove any spaces or special characters for validation
+    final cleanPhone = value.replaceAll(RegExp(r'[^\d]'), '');
+    if (_selectedCountry == 'Rwanda' && cleanPhone.length != 9) {
+      return 'Phone number must be 9 digits for Rwanda';
+    }
+    if (_selectedCountry == 'Ukraine' && cleanPhone.length < 9) {
+      return 'Please enter a valid phone number';
     }
     return null;
   }
@@ -43,40 +70,115 @@ class _SignUpPageState extends State<SignUpPage> {
     return null;
   }
 
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please confirm your password';
+    }
+    if (value != _passwordController.text) {
+      return 'Passwords do not match';
+    }
+    return null;
+  }
+
+  String _formatPhoneNumber(String phone) {
+    // Remove any existing country code and formatting
+    String cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+    
+    // Remove country code if it exists
+    if (_selectedCountry == 'Rwanda' && cleanPhone.startsWith('250')) {
+      cleanPhone = cleanPhone.substring(3);
+    } else if (_selectedCountry == 'Ukraine' && cleanPhone.startsWith('380')) {
+      cleanPhone = cleanPhone.substring(3);
+    }
+    
+    // Add the country code
+    return '${_selectedCountryCode.replaceAll('+', '')}$cleanPhone';
+  }
+
   Future<void> _handleSignUp() async {
-    if (_formKey.currentState!.validate()) {
-      if (!_agreeToTerms) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please agree to the terms and conditions'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        return;
+    if (!_formKey.currentState!.validate()) return;
+
+    if (!_agreeToTerms) {
+      _showErrorMessage('Please agree to the terms and conditions');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final formattedPhone = _formatPhoneNumber(_phoneController.text.trim());
+      
+      print('🚀 Attempting registration...');
+      print('📧 Email: ${_emailController.text.trim()}');
+      print('📱 Phone: $formattedPhone');
+      print('👤 Name: ${_nameController.text.trim()}');
+
+      final response = await UserApi.registerUser(
+        name: _nameController.text.trim(),
+        phone: formattedPhone,
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        role: 'customer',
+      );
+
+      if (response.success && response.data != null) {
+        _showSuccessMessage('Account created successfully! Please verify your account.');
+        
+        // Navigate to verification page
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VerificationPage(
+                verificationKey: response.data!.verificationKey,
+                sentVia: response.data!.sentVia,
+                email: _emailController.text.trim(),
+                phone: formattedPhone,
+              ),
+            ),
+          );
+        }
+      } else {
+        _showErrorMessage(response.message);
       }
-
-      setState(() {
-        _isLoading = true;
-      });
-
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
-
+    } catch (e) {
+      print('❌ Registration error: $e');
+      _showErrorMessage('Registration failed. Please try again.');
+    } finally {
       setState(() {
         _isLoading = false;
       });
-
-      // Show success message and navigate back
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account created successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        Navigator.pop(context);
-      }
     }
+  }
+
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+      ),
+    );
+  }
+
+  void _showSuccessMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.primary,
+      ),
+    );
   }
 
   void _showCountryPicker() {
@@ -101,43 +203,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              ListTile(
-                leading: Container(
-                  width: 32,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 12,
-                        color: AppColors.ukraineBlue,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        child: Container(
-                          width: 32,
-                          height: 12,
-                          color: AppColors.ukraineYellow,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                title: const Text(
-                  'Ukraine (+380)',
-                  style: TextStyle(color: AppColors.onBackground),
-                ),
-                onTap: () {
-                  setState(() {
-                    _selectedCountry = 'Ukraine';
-                    _selectedCountryCode = '+380';
-                  });
-                  Navigator.pop(context);
-                },
-              ),
               ListTile(
                 leading: Container(
                   width: 32,
@@ -183,6 +248,43 @@ class _SignUpPageState extends State<SignUpPage> {
                   Navigator.pop(context);
                 },
               ),
+              ListTile(
+                leading: Container(
+                  width: 32,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 12,
+                        color: AppColors.ukraineBlue,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        child: Container(
+                          width: 32,
+                          height: 12,
+                          color: AppColors.ukraineYellow,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                title: const Text(
+                  'Ukraine (+380)',
+                  style: TextStyle(color: AppColors.onBackground),
+                ),
+                onTap: () {
+                  setState(() {
+                    _selectedCountry = 'Ukraine';
+                    _selectedCountryCode = '+380';
+                  });
+                  Navigator.pop(context);
+                },
+              ),
             ],
           ),
         );
@@ -210,14 +312,14 @@ class _SignUpPageState extends State<SignUpPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Illustration
+                // Illustration (keep your existing illustration code)
                 Center(
                   child: Container(
                     height: 180,
                     width: 200,
                     child: Stack(
                       children: [
-                        // Delivery person illustration
+                        // Your existing illustration code
                         Positioned(
                           bottom: 20,
                           left: 50,
@@ -265,7 +367,6 @@ class _SignUpPageState extends State<SignUpPage> {
                             ),
                           ),
                         ),
-                        // Delivery bag
                         Positioned(
                           top: 40,
                           right: 20,
@@ -307,6 +408,17 @@ class _SignUpPageState extends State<SignUpPage> {
 
                 const SizedBox(height: 32),
 
+                // Name Field ✅ Added
+                CustomTextField(
+                  label: 'Full Name',
+                  hintText: 'Enter your full name',
+                  controller: _nameController,
+                  validator: _validateName,
+                  keyboardType: TextInputType.name,
+                ),
+
+                const SizedBox(height: 24),
+
                 // Country Selection
                 CustomTextField(
                   hintText: _selectedCountry,
@@ -346,56 +458,49 @@ class _SignUpPageState extends State<SignUpPage> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(2),
                             ),
-                            child:
-                                _selectedCountry == 'Rwanda'
-                                    ? Stack(
-                                      children: [
-                                        Container(
+                            child: _selectedCountry == 'Rwanda'
+                                ? Stack(
+                                    children: [
+                                      Container(
+                                        width: 20,
+                                        height: 5,
+                                        color: const Color(0xFF00A1DE),
+                                      ),
+                                      Positioned(
+                                        top: 5,
+                                        child: Container(
                                           width: 20,
                                           height: 5,
-                                          color: const Color(
-                                            0xFF00A1DE,
-                                          ), // Rwanda blue
+                                          color: const Color(0xFFFAD201),
                                         ),
-                                        Positioned(
-                                          top: 5,
-                                          child: Container(
-                                            width: 20,
-                                            height: 5,
-                                            color: const Color(
-                                              0xFFFAD201,
-                                            ), // Rwanda yellow
-                                          ),
+                                      ),
+                                      Positioned(
+                                        bottom: 0,
+                                        child: Container(
+                                          width: 20,
+                                          height: 5,
+                                          color: const Color(0xFF00A651),
                                         ),
-                                        Positioned(
-                                          bottom: 0,
-                                          child: Container(
-                                            width: 20,
-                                            height: 5,
-                                            color: const Color(
-                                              0xFF00A651,
-                                            ), // Rwanda green
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                    : Stack(
-                                      children: [
-                                        Container(
+                                      ),
+                                    ],
+                                  )
+                                : Stack(
+                                    children: [
+                                      Container(
+                                        width: 20,
+                                        height: 7.5,
+                                        color: AppColors.ukraineBlue,
+                                      ),
+                                      Positioned(
+                                        bottom: 0,
+                                        child: Container(
                                           width: 20,
                                           height: 7.5,
-                                          color: AppColors.ukraineBlue,
+                                          color: AppColors.ukraineYellow,
                                         ),
-                                        Positioned(
-                                          bottom: 0,
-                                          child: Container(
-                                            width: 20,
-                                            height: 7.5,
-                                            color: AppColors.ukraineYellow,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
+                                  ),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -427,6 +532,28 @@ class _SignUpPageState extends State<SignUpPage> {
                   controller: _emailController,
                   validator: _validateEmail,
                   keyboardType: TextInputType.emailAddress,
+                ),
+
+                const SizedBox(height: 24),
+
+                // Password Field ✅ Added
+                CustomTextField(
+                  label: 'Password',
+                  hintText: 'Enter your password',
+                  isPassword: true,
+                  controller: _passwordController,
+                  validator: _validatePassword,
+                ),
+
+                const SizedBox(height: 24),
+
+                // Confirm Password Field ✅ Added
+                CustomTextField(
+                  label: 'Confirm Password',
+                  hintText: 'Confirm your password',
+                  isPassword: true,
+                  controller: _confirmPasswordController,
+                  validator: _validateConfirmPassword,
                 ),
 
                 const SizedBox(height: 24),
