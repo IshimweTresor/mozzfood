@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
-import 'store_front_page.dart';
+import 'home_page.dart';
 
 class LocationDetailsPage extends StatefulWidget {
   const LocationDetailsPage({super.key});
@@ -64,11 +64,11 @@ class _LocationDetailsPageState extends State<LocationDetailsPage> {
       // Close loading dialog
       if (mounted) Navigator.pop(context);
 
-      // Navigate to store front
+      // Navigate to home page
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const StoreFrontPage()),
+          MaterialPageRoute(builder: (context) => const HomePage()),
         );
       }
     }

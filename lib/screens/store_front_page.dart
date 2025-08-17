@@ -9,7 +9,6 @@ class StoreFrontPage extends StatefulWidget {
 }
 
 class _StoreFrontPageState extends State<StoreFrontPage> {
-  int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
 
   // Mock data for products
@@ -566,51 +565,6 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: AppColors.surface,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textSecondary,
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          if (index == 1) {
-            // Prime tab
-            Navigator.pushNamed(context, '/prime');
-          } else if (index == 2) {
-            // Orders tab
-            Navigator.pushNamed(context, '/orders');
-          } else if (index == 3) {
-            // Cart tab
-            Navigator.pushNamed(context, '/cart');
-          } else if (index == 4) {
-            // More tab
-            Navigator.pushNamed(context, '/more-options');
-          } else {
-            setState(() {
-              _selectedIndex = index;
-            });
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.storefront),
-            label: 'Store Front',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.local_offer),
-            label: 'Prime',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.menu), label: 'More'),
-        ],
       ),
     );
   }

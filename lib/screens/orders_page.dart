@@ -59,222 +59,246 @@ class _OrdersPageState extends State<OrdersPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.onBackground),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Orders',
-          style: TextStyle(
-            color: AppColors.onBackground,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Tab Selection (Order History / Pickup History)
-          Container(
-            margin: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom App Bar
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  GestureDetector(
                     onTap: () {
-                      setState(() {
-                        _selectedTab = 'Order History';
-                      });
+                      Navigator.pop(context);
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color:
-                            _selectedTab == 'Order History'
-                                ? AppColors.primary
-                                : Colors.transparent,
-                        borderRadius: BorderRadius.circular(25),
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color:
-                              _selectedTab == 'Order History'
-                                  ? AppColors.primary
-                                  : AppColors.inputBorder,
+                          color: AppColors.inputBorder.withOpacity(0.3),
                         ),
                       ),
-                      child: Text(
-                        'Order History',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color:
-                              _selectedTab == 'Order History'
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: const Icon(
+                        Icons.arrow_back_ios,
+                        color: AppColors.onBackground,
+                        size: 18,
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedTab = 'Pickup History';
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color:
-                            _selectedTab == 'Pickup History'
-                                ? AppColors.primary
-                                : Colors.transparent,
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(
-                          color:
-                              _selectedTab == 'Pickup History'
-                                  ? AppColors.primary
-                                  : AppColors.inputBorder,
-                        ),
-                      ),
-                      child: Text(
-                        'Pickup History',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color:
-                              _selectedTab == 'Pickup History'
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Orders',
+                    style: TextStyle(
+                      color: AppColors.onBackground,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+            // Tab Selection (Order History / Pickup History)
+            Container(
+              margin: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedTab = 'Order History';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color:
+                              _selectedTab == 'Order History'
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                            color:
+                                _selectedTab == 'Order History'
+                                    ? AppColors.primary
+                                    : AppColors.inputBorder,
+                          ),
+                        ),
+                        child: Text(
+                          'Order History',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color:
+                                _selectedTab == 'Order History'
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedTab = 'Pickup History';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color:
+                              _selectedTab == 'Pickup History'
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                            color:
+                                _selectedTab == 'Pickup History'
+                                    ? AppColors.primary
+                                    : AppColors.inputBorder,
+                          ),
+                        ),
+                        child: Text(
+                          'Pickup History',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color:
+                                _selectedTab == 'Pickup History'
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-          // Status Filter (Processing / Completed / Failed)
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(25),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedStatus = 'Processing';
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color:
-                            _selectedStatus == 'Processing'
-                                ? AppColors.primary
-                                : Colors.transparent,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Text(
-                        'Processing',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
+            // Status Filter (Processing / Completed / Failed)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedStatus = 'Processing';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
                           color:
                               _selectedStatus == 'Processing'
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: Text(
+                          'Processing',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color:
+                                _selectedStatus == 'Processing'
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedStatus = 'Completed';
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color:
-                            _selectedStatus == 'Completed'
-                                ? AppColors.primary
-                                : Colors.transparent,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Text(
-                        'Completed',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedStatus = 'Completed';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
                           color:
                               _selectedStatus == 'Completed'
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: Text(
+                          'Completed',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color:
+                                _selectedStatus == 'Completed'
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedStatus = 'Failed';
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color:
-                            _selectedStatus == 'Failed'
-                                ? AppColors.primary
-                                : Colors.transparent,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Text(
-                        'Failed',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedStatus = 'Failed';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
                           color:
                               _selectedStatus == 'Failed'
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: Text(
+                          'Failed',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color:
+                                _selectedStatus == 'Failed'
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          const SizedBox(height: 32),
+            const SizedBox(height: 32),
 
-          // Content based on selected status and whether there are orders
-          Expanded(
-            child:
-                _getFilteredOrders().isEmpty
-                    ? _buildEmptyState()
-                    : _buildOrdersList(),
-          ),
-        ],
+            // Content based on selected status and whether there are orders
+            Expanded(
+              child:
+                  _getFilteredOrders().isEmpty
+                      ? _buildEmptyState()
+                      : _buildOrdersList(),
+            ),
+          ],
+        ),
       ),
     );
   }

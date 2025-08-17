@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
-import '../widgets/custom_button.dart';
 
 class VubaWalletPage extends StatefulWidget {
   const VubaWalletPage({super.key});

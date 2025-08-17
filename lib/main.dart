@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'utils/colors.dart';
 import 'screens/auth/login_page.dart';
+import 'screens/home_page.dart';
 import 'screens/location_selection_page.dart';
 import 'screens/map_location_picker_page.dart';
 import 'screens/location_details_page.dart';
@@ -106,6 +107,7 @@ class VubaApp extends StatelessWidget {
       home: const LoginPage(),
       routes: {
         '/login': (context) => const LoginPage(),
+        '/home': (context) => const HomePage(),
         '/location-selection': (context) => const LocationSelectionPage(),
         '/map-location-picker': (context) => const MapLocationPickerPage(),
         '/location-details': (context) => const LocationDetailsPage(),

@@ -58,404 +58,439 @@ class _PrimePageState extends State<PrimePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.onBackground),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Vuba Prime',
-          style: TextStyle(
-            color: AppColors.onBackground,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const PrimeHistoryPage(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.history, color: AppColors.textSecondary),
-            label: const Text(
-              'History',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Vuba Logo
-            Center(
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.primary, width: 2),
-                ),
-                child: const Center(
-                  child: Text(
-                    'vuba',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Title
-            const Text(
-              'Who is Eligible for Vuba Prime?',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.onBackground,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Description
-            const Text(
-              'To qualify for Vuba Prime membership, you must meet the following criteria at the time of subscription:',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Criteria List
-            _buildCriteriaItem(
-              '1. You must be an individual, corporate or sponsored accounts are not allowed.',
-            ),
-
-            const SizedBox(height: 16),
-
-            _buildCriteriaItem(
-              '2. You must have done 5 successful prepaid order in the past 30 days via Pega Já.',
-            ),
-
-            const SizedBox(height: 24),
-
-            // Eligibility Status
+            // Custom App Bar
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.success.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.success.withOpacity(0.3)),
-              ),
+              padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: AppColors.success,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: 20,
+                  const Text(
+                    'Vuba Prime',
+                    style: TextStyle(
+                      color: AppColors.onBackground,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'You are eligible to Vuba Prime',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.success,
-                      ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PrimeHistoryPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.history,
+                      color: AppColors.textSecondary,
+                    ),
+                    label: const Text(
+                      'History',
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                   ),
                 ],
               ),
             ),
-
-            const SizedBox(height: 32),
-
-            // Buy Prime Button (First Screen)
-            if (_selectedRecipient.isEmpty) ...[
-              CustomButton(
-                text: 'Buy Prime',
-                onPressed: () {
-                  setState(() {
-                    _selectedRecipient = 'My Self'; // Set default to My Self
-                  });
-                },
-              ),
-            ] else ...[
-              // Buy Prime For Section
-              const Text(
-                'Buy Prime For:',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.onBackground,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Recipient Selection
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedRecipient = 'My Self';
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color:
-                              _selectedRecipient == 'My Self'
-                                  ? Colors.white
-                                  : Colors.transparent,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
-                            color:
-                                _selectedRecipient == 'My Self'
-                                    ? Colors.white
-                                    : AppColors.inputBorder,
-                          ),
-                        ),
-                        child: Text(
-                          'My Self',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color:
-                                _selectedRecipient == 'My Self'
-                                    ? Colors.black
-                                    : AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedRecipient = 'Others';
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color:
-                              _selectedRecipient == 'Others'
-                                  ? Colors.white
-                                  : Colors.transparent,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
-                            color:
-                                _selectedRecipient == 'Others'
-                                    ? Colors.white
-                                    : AppColors.inputBorder,
-                          ),
-                        ),
-                        child: Text(
-                          'Others',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color:
-                                _selectedRecipient == 'Others'
-                                    ? Colors.black
-                                    : AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // Subscription form for both My Self and Others
-              // Subscription Plan
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.inputBorder),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.primary, width: 2),
-                      ),
+                    // Vuba Logo
+                    Center(
                       child: Container(
-                        margin: const EdgeInsets.all(3),
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.primary,
+                            width: 2,
+                          ),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'vuba',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+
+                    const SizedBox(height: 24),
+
+                    // Title
+                    const Text(
+                      'Who is Eligible for Vuba Prime?',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.onBackground,
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Description
+                    const Text(
+                      'To qualify for Vuba Prime membership, you must meet the following criteria at the time of subscription:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Criteria List
+                    _buildCriteriaItem(
+                      '1. You must be an individual, corporate or sponsored accounts are not allowed.',
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    _buildCriteriaItem(
+                      '2. You must have done 5 successful prepaid order in the past 30 days via Pega Já.',
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Eligibility Status
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.success.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            'One month',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.onBackground,
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: AppColors.success,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 20,
                             ),
                           ),
-                          Text(
-                            'RWF 25,000',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.onBackground,
-                            ),
-                          ),
-                          Text(
-                            'Enjoy 30 days of free delivery',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'You are eligible to Vuba Prime',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.success,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
+
+                    const SizedBox(height: 32),
+
+                    // Buy Prime Button (First Screen)
+                    if (_selectedRecipient.isEmpty) ...[
+                      CustomButton(
+                        text: 'Buy Prime',
+                        onPressed: () {
+                          setState(() {
+                            _selectedRecipient =
+                                'My Self'; // Set default to My Self
+                          });
+                        },
+                      ),
+                    ] else ...[
+                      // Buy Prime For Section
+                      const Text(
+                        'Buy Prime For:',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.onBackground,
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Recipient Selection
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedRecipient = 'My Self';
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      _selectedRecipient == 'My Self'
+                                          ? Colors.white
+                                          : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(25),
+                                  border: Border.all(
+                                    color:
+                                        _selectedRecipient == 'My Self'
+                                            ? Colors.white
+                                            : AppColors.inputBorder,
+                                  ),
+                                ),
+                                child: Text(
+                                  'My Self',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color:
+                                        _selectedRecipient == 'My Self'
+                                            ? Colors.black
+                                            : AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedRecipient = 'Others';
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      _selectedRecipient == 'Others'
+                                          ? Colors.white
+                                          : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(25),
+                                  border: Border.all(
+                                    color:
+                                        _selectedRecipient == 'Others'
+                                            ? Colors.white
+                                            : AppColors.inputBorder,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Others',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color:
+                                        _selectedRecipient == 'Others'
+                                            ? Colors.black
+                                            : AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Subscription form for both My Self and Others
+                      // Subscription Plan
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.inputBorder),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.primary,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Container(
+                                margin: const EdgeInsets.all(3),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'One month',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.onBackground,
+                                    ),
+                                  ),
+                                  Text(
+                                    'RWF 25,000',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppColors.onBackground,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Enjoy 30 days of free delivery',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Phone Number Input (only for Others)
+                      if (_selectedRecipient == 'Others') ...[
+                        CustomTextField(
+                          controller: _phoneController,
+                          hintText: 'Subscriber number or telephone number',
+                          keyboardType: TextInputType.phone,
+                          prefix: const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Icon(
+                              Icons.person,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+
+                      // Method Dropdown
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.inputBorder),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Method',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const Spacer(),
+                            DropdownButton<String>(
+                              value: _selectedMethod,
+                              underline: const SizedBox(),
+                              dropdownColor: AppColors.surface,
+                              style: const TextStyle(
+                                color: AppColors.onBackground,
+                              ),
+                              icon: const Icon(
+                                Icons.keyboard_arrow_down,
+                                color: AppColors.textSecondary,
+                              ),
+                              items:
+                                  [
+                                    'Select method',
+                                    ..._paymentMethods.map(
+                                      (e) => e['name'] as String,
+                                    ),
+                                  ].map<DropdownMenuItem<String>>((
+                                    String value,
+                                  ) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  _selectedMethod = newValue!;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Confirm Button
+                      CustomButton(
+                        text: 'Confirm',
+                        onPressed: () {
+                          if (_selectedRecipient == 'Others') {
+                            if (_phoneController.text.isNotEmpty &&
+                                _selectedMethod != 'Select method') {
+                              _handlePurchase();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please fill all fields'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          } else {
+                            if (_selectedMethod != 'Select method') {
+                              _handlePurchase();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Please select a payment method',
+                                  ),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              // Phone Number Input (only for Others)
-              if (_selectedRecipient == 'Others') ...[
-                CustomTextField(
-                  controller: _phoneController,
-                  hintText: 'Subscriber number or telephone number',
-                  keyboardType: TextInputType.phone,
-                  prefix: const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Icon(Icons.person, color: AppColors.textSecondary),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // Method Dropdown
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.inputBorder),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Method',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const Spacer(),
-                    DropdownButton<String>(
-                      value: _selectedMethod,
-                      underline: const SizedBox(),
-                      dropdownColor: AppColors.surface,
-                      style: const TextStyle(color: AppColors.onBackground),
-                      icon: const Icon(
-                        Icons.keyboard_arrow_down,
-                        color: AppColors.textSecondary,
-                      ),
-                      items:
-                          [
-                            'Select method',
-                            ..._paymentMethods.map((e) => e['name'] as String),
-                          ].map<DropdownMenuItem<String>>((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedMethod = newValue!;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Confirm Button
-              CustomButton(
-                text: 'Confirm',
-                onPressed: () {
-                  if (_selectedRecipient == 'Others') {
-                    if (_phoneController.text.isNotEmpty &&
-                        _selectedMethod != 'Select method') {
-                      _handlePurchase();
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please fill all fields'),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
-                    }
-                  } else {
-                    if (_selectedMethod != 'Select method') {
-                      _handlePurchase();
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please select a payment method'),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
-                    }
-                  }
-                },
-              ),
-            ],
+            ),
           ],
         ),
       ),

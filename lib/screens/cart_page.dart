@@ -47,29 +47,43 @@ class _CartPageState extends State<CartPage> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.onBackground),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Cart',
-          style: TextStyle(
-            color: AppColors.onBackground,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          if (_cartItems.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: AppColors.error),
-              onPressed: _showClearCartDialog,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom App Bar
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  const Text(
+                    'Cart',
+                    style: TextStyle(
+                      color: AppColors.onBackground,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_cartItems.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: AppColors.error,
+                      ),
+                      onPressed: _showClearCartDialog,
+                    ),
+                ],
+              ),
             ),
-        ],
+            Expanded(
+              child:
+                  _cartItems.isEmpty
+                      ? _buildEmptyCart()
+                      : _buildCartWithItems(),
+            ),
+          ],
+        ),
       ),
-      body: _cartItems.isEmpty ? _buildEmptyCart() : _buildCartWithItems(),
       bottomNavigationBar:
           _cartItems.isNotEmpty
               ? Container(
