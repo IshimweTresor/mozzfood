@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vuba/models/user.model.dart';
 import '../utils/colors.dart';
 import 'store_front_page.dart';
 import 'prime_page.dart';
@@ -8,8 +9,9 @@ import 'more_options_page.dart';
 
 class HomePage extends StatefulWidget {
   final String? selectedLocation;
+  final SavedLocation? selectedLocationData;
 
-  const HomePage({super.key, this.selectedLocation});
+  const HomePage({super.key, this.selectedLocation, this.selectedLocationData});
 
   @override
   State<HomePage> createState() => _HomePageState();
