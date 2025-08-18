@@ -7,7 +7,7 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../location_selection_page.dart';
 import 'signup_page.dart';
-// import 'forgot_password_page.dart';
+import 'forgot_password_page.dart'; // ✅ Keep this import
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -196,15 +196,6 @@ Future<void> _handleLogin() async {
   }
 }
 
-  // void _navigateToForgotPassword() {
-  //   Navigator.push(
-  //     context,
-  //     MaterialPageRoute(
-  //       builder: (context) => const ForgotPasswordPage(),
-  //     ),
-  //   );
-  // }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -346,20 +337,27 @@ Future<void> _handleLogin() async {
 
                 const SizedBox(height: 16),
 
-                // Forgot Password
-                // Align(
-                //   alignment: Alignment.centerRight,
-                //   child: TextButton(
-                //     onPressed: _isLoading ? null : _navigateToForgotPassword,
-                //     child: const Text(
-                //       'Forgot Password ?',
-                //       style: TextStyle(
-                //         color: AppColors.textSecondary,
-                //         fontSize: 14,
-                //       ),
-                //     ),
-                //   ),
-                // ),
+                // Forgot Password - ✅ Keep the working version from main
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _isLoading ? null : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ForgotPasswordPage(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'Forgot Password ?',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
 
                 const SizedBox(height: 32),
 
