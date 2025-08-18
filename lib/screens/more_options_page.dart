@@ -23,9 +23,30 @@ class _MoreOptionsPageState extends State<MoreOptionsPage> {
                 // Custom App Bar
                 Container(
                   padding: const EdgeInsets.all(20),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Text(
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.inputBorder.withOpacity(0.3),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios,
+                            color: AppColors.onBackground,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Text(
                         'Options',
                         style: TextStyle(
                           color: AppColors.onBackground,

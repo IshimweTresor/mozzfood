@@ -77,7 +77,31 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 60),
+                const SizedBox(height: 40),
+
+                // Back Button
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.inputBorder.withOpacity(0.3),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back_ios,
+                      color: AppColors.onBackground,
+                      size: 18,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
 
                 // Illustration
                 Center(
