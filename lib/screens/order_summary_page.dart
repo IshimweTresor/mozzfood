@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'address_book_page.dart';
+import 'payment_method_page.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final String paymentMethod;
@@ -99,6 +101,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                         ],
                       ),
                       hasChangeButton: true,
+                      onChangePressed: _changeDeliveryLocation,
                     ),
 
                     const SizedBox(height: 20),
@@ -159,6 +162,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                         ],
                       ),
                       hasChangeButton: true,
+                      onChangePressed: _changePaymentMethod,
                     ),
 
                     const SizedBox(height: 20),
@@ -351,6 +355,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     required String title,
     required Widget content,
     bool hasChangeButton = false,
+    VoidCallback? onChangePressed,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,25 +368,28 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               style: const TextStyle(color: Colors.grey, fontSize: 14),
             ),
             if (hasChangeButton)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.edit, color: Colors.white, size: 14),
-                    SizedBox(width: 4),
-                    Text(
-                      'Change',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ],
+              GestureDetector(
+                onTap: onChangePressed,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.edit, color: Colors.white, size: 14),
+                      SizedBox(width: 4),
+                      Text(
+                        'Change',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],
@@ -442,6 +450,20 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
             ),
           ),
       ],
+    );
+  }
+
+  void _changeDeliveryLocation() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddressBookPage()),
+    );
+  }
+
+  void _changePaymentMethod() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const PaymentMethodPage()),
     );
   }
 
