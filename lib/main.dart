@@ -12,7 +12,6 @@ import 'screens/orders_page.dart';
 import 'screens/cart_page.dart';
 import 'screens/address_book_page.dart';
 import 'screens/vuba_wallet_page.dart';
-import 'screens/mobile_wallet_numbers_page.dart';
 import 'screens/rating_and_reviews_page.dart';
 import 'screens/notification_settings_page.dart';
 import 'screens/messages_page.dart';
@@ -117,7 +116,6 @@ class VubaApp extends StatelessWidget {
         '/cart': (context) => const CartPage(),
         '/address-book': (context) => const AddressBookPage(),
         '/vuba-wallet': (context) => const VubaWalletPage(),
-        '/mobile-wallet-numbers': (context) => const MobileWalletNumbersPage(),
         '/rating-reviews': (context) => const RatingAndReviewsPage(),
         '/notification-settings': (context) => const NotificationSettingsPage(),
         '/messages': (context) => const MessagesPage(),

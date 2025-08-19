@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../api/user.api.dart';
+import '../../response/auth_responses.dart';
 import '../../utils/colors.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../location_selection_page.dart';
 import 'signup_page.dart';
-import 'forgot_password_page.dart';
+import 'forgot_password_page.dart'; // ✅ Keep this import
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,13 +18,14 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _identifierController =
+      TextEditingController(); // Changed from email to identifier
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -30,6 +34,20 @@ class _LoginPageState extends State<LoginPage> {
     if (value == null || value.isEmpty) {
       return 'Phone number or email is required';
     }
+
+    // Basic validation for email or phone
+    if (value.contains('@')) {
+      // Email validation
+      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+        return 'Please enter a valid email address';
+      }
+    } else {
+      // Phone validation (basic)
+      if (value.length < 9 || !RegExp(r'^[+]?[0-9]+$').hasMatch(value)) {
+        return 'Please enter a valid phone number';
+      }
+    }
+
     return null;
   }
 
@@ -37,30 +55,147 @@ class _LoginPageState extends State<LoginPage> {
     if (value == null || value.isEmpty) {
       return 'Password is required';
     }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
     return null;
   }
 
-  Future<void> _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  Future<void> _saveUserData(LoginResponse loginResponse) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+      // Save user token
+      await prefs.setString('auth_token', loginResponse.token);
 
-      setState(() {
-        _isLoading = false;
-      });
+      // Save user data
+      await prefs.setString('user_id', loginResponse.user.id ?? '');
+      await prefs.setString('user_name', loginResponse.user.name);
+      await prefs.setString('user_email', loginResponse.user.email);
+      await prefs.setString('user_phone', loginResponse.user.phone);
+      await prefs.setString('user_role', loginResponse.user.role);
+      await prefs.setBool(
+        'user_verified',
+        loginResponse.user.isVerified ?? false,
+      );
 
-      // Navigate to location selection page
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const LocationSelectionPage(),
-          ),
+      // Save login status
+      await prefs.setBool('is_logged_in', true);
+
+      print('✅ User data saved successfully');
+    } catch (e) {
+      print('❌ Error saving user data: $e');
+    }
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
         );
+      },
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.primary,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      print('🔄 Attempting login...');
+      print('📧 Identifier: ${_identifierController.text.trim()}');
+
+      final response = await UserApi.loginUser(
+        identifier: _identifierController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      print('📱 API Response: ${response.success}');
+      print('📱 Message: ${response.message}');
+
+      if (response.success && response.data != null) {
+        print('🔍 User Data Debug:');
+        print('   - User ID: ${response.data!.user.id}');
+        print('   - User Name: ${response.data!.user.name}');
+        print('   - User Email: ${response.data!.user.email}');
+        print('   - User Phone: ${response.data!.user.phone}');
+        print('   - User Role: ${response.data!.user.role}');
+        print('   - Is Verified: ${response.data!.user.isVerified}');
+        print('   - Token: ${response.data!.token.substring(0, 20)}...');
+
+        // Login successful
+        print('✅ Login successful!');
+
+        // Save user data locally
+        await _saveUserData(response.data!);
+
+        // Show success message
+        _showSuccessSnackBar(response.message);
+
+        // Check if user is verified - Handle nullable field
+        final isVerified =
+            response.data!.user.isVerified ?? false; // ✅ Handle null case
+        print('🔍 Verification Check: $isVerified');
+
+        if (!isVerified) {
+          print('❌ User is NOT verified - showing dialog');
+          _showErrorDialog(
+            'Account Not Verified',
+            'Please verify your account first. Check your email or SMS for the verification code.',
+          );
+          return;
+        }
+
+        print('✅ User IS verified - proceeding to main app');
+        // Navigate to location selection page or main app
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LocationSelectionPage(),
+            ),
+          );
+        }
+      } else {
+        // Login failed
+        print('❌ Login failed: ${response.message}');
+        _showErrorDialog('Login Failed', response.message);
+      }
+    } catch (e) {
+      print('❌ Login error: $e');
+      _showErrorDialog(
+        'Network Error',
+        'Unable to connect to the server. Please check your internet connection and try again.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -210,9 +345,10 @@ class _LoginPageState extends State<LoginPage> {
                 CustomTextField(
                   label: 'Phone Number/Email',
                   hintText: 'Enter your phone number or email',
-                  controller: _emailController,
+                  controller: _identifierController,
                   validator: _validateEmailOrPhone,
                   keyboardType: TextInputType.emailAddress,
+                  enabled: !_isLoading,
                 ),
 
                 const SizedBox(height: 24),
@@ -224,22 +360,27 @@ class _LoginPageState extends State<LoginPage> {
                   isPassword: true,
                   controller: _passwordController,
                   validator: _validatePassword,
+                  enabled: !_isLoading,
                 ),
 
                 const SizedBox(height: 16),
 
-                // Forgot Password
+                // Forgot Password - ✅ Keep the working version from main
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ForgotPasswordPage(),
-                        ),
-                      );
-                    },
+                    onPressed:
+                        _isLoading
+                            ? null
+                            : () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => const ForgotPasswordPage(),
+                                ),
+                              );
+                            },
                     child: const Text(
                       'Forgot Password ?',
                       style: TextStyle(
@@ -255,9 +396,22 @@ class _LoginPageState extends State<LoginPage> {
                 // Sign In Button
                 CustomButton(
                   text: 'Sign In',
-                  onPressed: _handleLogin,
+                  onPressed: _isLoading ? null : _handleLogin,
                   isLoading: _isLoading,
                 ),
+
+                if (_isLoading) ...[
+                  const SizedBox(height: 16),
+                  const Center(
+                    child: Text(
+                      'Signing you in...',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 40),
 
@@ -273,18 +427,24 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SignUpPage(),
-                          ),
-                        );
-                      },
-                      child: const Text(
+                      onTap:
+                          _isLoading
+                              ? null
+                              : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SignUpPage(),
+                                  ),
+                                );
+                              },
+                      child: Text(
                         'Sign up now',
                         style: TextStyle(
-                          color: AppColors.primary,
+                          color:
+                              _isLoading
+                                  ? AppColors.textSecondary
+                                  : AppColors.primary,
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
                         ),
