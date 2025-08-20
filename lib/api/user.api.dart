@@ -439,6 +439,7 @@ static Future<ApiResponse<LoginResponse>> loginUser({
       );
 
       final data = jsonDecode(response.body);
+      print('ResetKey used: ${resetKey}');
 
       if (response.statusCode == 200) {
         return ApiResponse<User>(
