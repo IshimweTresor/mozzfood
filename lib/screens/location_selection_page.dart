@@ -345,12 +345,12 @@ Future<void> _fetchUserLocations() async {
             onPressed: _showLogoutDialog,
             icon: const Icon(
               Icons.logout,
-              color: AppColors.textSecondary,
+              color: AppColors.error,
               size: 20,
             ),
             label: const Text(
               'Logout',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+              style: TextStyle(color: AppColors.error, fontSize: 16),
             ),
           ),
         ],

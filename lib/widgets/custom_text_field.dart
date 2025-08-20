@@ -13,6 +13,7 @@ class CustomTextField extends StatefulWidget {
   final bool enabled;
   final VoidCallback? onTap;
   final bool readOnly;
+  final ValueChanged<String>? onChanged;
 
   const CustomTextField({
     super.key,
@@ -27,6 +28,7 @@ class CustomTextField extends StatefulWidget {
     this.enabled = true,
     this.onTap,
     this.readOnly = false,
+    this.onChanged,
   });
 
   @override
@@ -60,6 +62,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
           readOnly: widget.readOnly,
           onTap: widget.onTap,
           obscureText: widget.isPassword ? _obscureText : false,
+          onChanged: widget.onChanged,
           style: const TextStyle(color: AppColors.onBackground, fontSize: 16),
           decoration: InputDecoration(
             hintText: widget.hintText,
