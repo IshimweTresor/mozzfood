@@ -1,98 +1,135 @@
 import 'package:flutter/material.dart';
-import 'add_address_page.dart';
+import '../models/user.model.dart';
+import '../api/user.api.dart';
 import 'payment_method_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 class AddressBookPage extends StatefulWidget {
-  const AddressBookPage({super.key});
+  final SavedLocation? selectedLocation;
+  const AddressBookPage({super.key, this.selectedLocation});
 
   @override
   State<AddressBookPage> createState() => _AddressBookPageState();
 }
 
 class _AddressBookPageState extends State<AddressBookPage> {
-  bool _isAddressSelected = false; // Track if address is selected
+  bool _isAddressSelected = false;
+  int? _selectedIndex;
+  List<SavedLocation> _addresses = [];
+  bool _isLoading = true;
+  String? _authToken;
 
-  List<AddressItem> _addresses = [
-    AddressItem(
-      name: 'Bwiza',
-      address: 'KG 115 Ave, Kabuga, Rwanda',
-      phone: '250784107365',
-      isDefault: true,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+// ...existing imports...
+
+Future<void> _loadAddresses() async {
+  setState(() {
+    _isLoading = true;
+  });
+
+  // Get auth token from SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  _authToken = prefs.getString('auth_token'); // <-- Make sure this key matches your app
+
+  if (_authToken == null) {
+    setState(() {
+      _isLoading = false;
+    });
+    return;
+  }
+
+  final response = await UserApi.getUserLocations(token: _authToken!);
+  if (response.success && response.data != null) {
+    final locations = response.data!.savedLocations;
+    setState(() {
+      _addresses = locations;
+      _isLoading = false;
+      if (widget.selectedLocation != null) {
+        _selectedIndex = _addresses.indexWhere(
+          (loc) => loc.id == widget.selectedLocation!.id,
+        );
+        _isAddressSelected = _selectedIndex != -1;
+      }
+    });
+  } else {
+    setState(() {
+      _isLoading = false;
+    });
+  }
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(
-        0xFF1A1A1A,
-      ), // Dark background like screenshot
+      backgroundColor: const Color(0xFF1A1A1A),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Custom App Bar
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Icon(
-                      Icons.arrow_back_ios,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Text(
-                    'My Address Book',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: _addAddress,
-                    child: const Row(
-                      children: [
-                        Icon(Icons.add, color: Colors.white),
-                        SizedBox(width: 4),
-                        Text(
-                          'Address',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                  children: [
+                    // App Bar
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: const Icon(
+                              Icons.arrow_back_ios,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 16),
+                          const Text(
+                            'My Address Book',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          const Spacer(),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Address List
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: _addresses.length,
-                itemBuilder: (context, index) {
-                  final address = _addresses[index];
-                  return _buildAddressCard(address, index);
-                },
-              ),
-            ),
-          ],
-        ),
+                    // Address List
+                    Expanded(
+                      child:
+                          _addresses.isEmpty
+                              ? const Center(
+                                child: Text(
+                                  'No addresses found.',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              )
+                              : ListView.builder(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                ),
+                                itemCount: _addresses.length,
+                                itemBuilder: (context, index) {
+                                  final address = _addresses[index];
+                                  return _buildAddressCard(address, index);
+                                },
+                              ),
+                    ),
+                  ],
+                ),
       ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Proceed to Checkout Button - Only show when address is selected
           if (_isAddressSelected)
             Container(
               margin: const EdgeInsets.all(20),
@@ -123,41 +160,17 @@ class _AddressBookPageState extends State<AddressBookPage> {
                 ),
               ),
             ),
-          // Bottom Navigation Bar
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color(0xFF2A2A2A),
-              border: Border(
-                top: BorderSide(color: Color(0xFF3A3A3A), width: 1),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildBottomNavItem(Icons.store, 'Store Front', false),
-                _buildBottomNavItem(Icons.local_offer, 'Prime', false),
-                _buildBottomNavItem(Icons.receipt_long, 'Orders', false),
-                _buildBottomNavItem(
-                  Icons.shopping_cart,
-                  'Cart',
-                  true,
-                  hasNotification: true,
-                ),
-                _buildBottomNavItem(Icons.more_horiz, 'More', false),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildAddressCard(AddressItem address, int index) {
+  Widget _buildAddressCard(SavedLocation address, int index) {
+    final isSelected = _selectedIndex == index;
     return GestureDetector(
       onTap: () {
-        // Select this address and show checkout button
         setState(() {
+          _selectedIndex = index;
           _isAddressSelected = true;
         });
       },
@@ -165,140 +178,63 @@ class _AddressBookPageState extends State<AddressBookPage> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color:
+              isSelected
+                  ? Colors.green.withOpacity(0.15)
+                  : const Color(0xFF2A2A2A),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF3A3A3A)),
+          border: Border.all(
+            color: isSelected ? Colors.green : const Color(0xFF3A3A3A),
+            width: isSelected ? 2 : 1,
+          ),
         ),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.location_on,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      address.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.home, color: Colors.grey, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        address.address,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.phone, color: Colors.grey, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      address.phone,
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                    const Spacer(),
-                    // Green call icon
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.phone,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Edit icon
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.edit,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ],
+                const Icon(Icons.location_on, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  address.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),
-            if (address.isDefault)
-              Positioned(
-                top: -8,
-                right: -8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Default',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.home, color: Colors.grey, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    address.address,
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                 ),
+              ],
+            ),
+            if (address.phone != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.phone, color: Colors.grey, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    address.phone!,
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                ],
               ),
+            ],
           ],
         ),
       ),
     );
-  }
-
-  void _addAddress() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddAddressPage()),
-    );
-
-    if (result != null) {
-      setState(() {
-        _addresses.add(
-          AddressItem(
-            name: result['name'],
-            address: result['address'],
-            phone: result['phone'],
-            isDefault: result['isDefault'] ?? false,
-          ),
-        );
-      });
-    }
   }
 
   void _proceedToCheckout() {
@@ -307,71 +243,4 @@ class _AddressBookPageState extends State<AddressBookPage> {
       MaterialPageRoute(builder: (context) => const PaymentMethodPage()),
     );
   }
-
-  Widget _buildBottomNavItem(
-    IconData icon,
-    String label,
-    bool isSelected, {
-    bool hasNotification = false,
-  }) {
-    return Stack(
-      children: [
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.green : Colors.grey,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.green : Colors.grey,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-        if (hasNotification)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-              child: const Text(
-                '1',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class AddressItem {
-  final String name;
-  final String address;
-  final String phone;
-  final bool isDefault;
-
-  AddressItem({
-    required this.name,
-    required this.address,
-    required this.phone,
-    required this.isDefault,
-  });
 }

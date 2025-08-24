@@ -58,6 +58,7 @@ Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
 
 SavedLocation _$SavedLocationFromJson(Map<String, dynamic> json) =>
     SavedLocation(
+      id: json['_id'] as String?,
       name: json['name'] as String,
       address: json['address'] as String,
       lat: (json['lat'] as num).toDouble(),
@@ -72,6 +73,7 @@ SavedLocation _$SavedLocationFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$SavedLocationToJson(SavedLocation instance) =>
     <String, dynamic>{
+      '_id': instance.id,
       'name': instance.name,
       'address': instance.address,
       'lat': instance.lat,
