@@ -1,65 +1,47 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 
-class StoreFrontPage extends StatefulWidget {
-  const StoreFrontPage({super.key});
+import 'store_detail_page.dart';
 
-  @override
-  State<StoreFrontPage> createState() => _StoreFrontPageState();
-}
+class StoreFrontPage extends StatelessWidget {
+  StoreFrontPage({super.key});
 
-class _StoreFrontPageState extends State<StoreFrontPage> {
-  final TextEditingController _searchController = TextEditingController();
-
-  // Mock data for products
-  final List<Map<String, dynamic>> _featuredProducts = [
+  final List<Map<String, dynamic>> stores = [
     {
-      'name': 'Roasted Chicken',
-      'restaurant': 'Migano Cafe - Musanze',
-      'price': 'RWF 10,000',
+      'name': 'Zenn Pharmacy',
+      'rating': 4,
+      'distance': '14km',
+      'deliveryFee': 'RWF 3,300',
+      'deliveryTime': '35-40 min',
+      'status': 'OPEN',
+      'image': null,
+    },
+    {
+      'name': 'Honest (Horebu) Supermarket',
       'rating': 3,
-      'distance': '4km',
-      'image': 'chicken.jpg',
+      'distance': '14km',
+      'deliveryFee': 'RWF 3,300',
+      'deliveryTime': '35-45 min',
+      'status': 'OPEN',
+      'image': null,
     },
     {
-      'name': 'Sweet Banana (small)',
-      'restaurant': 'Musanze Food Market',
-      'price': 'RWF 1,100',
-      'rating': 4,
-      'distance': '5km',
-      'image': 'banana.jpg',
-    },
-    {
-      'name': 'Hennessy',
-      'restaurant': 'Rukara Liquors',
-      'price': 'RWF 110,000',
-      'rating': 5,
-      'distance': '3km',
-      'image': 'hennessy.jpg',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _allDayProducts = [
-    {
-      'name': 'Migano Cafe - Musanze',
-      'description': 'DF:RWF1,000',
+      'name': 'Inyange Products',
       'rating': 3,
-      'distance': '4km',
-      'image': 'migano.jpg',
+      'distance': '16km',
+      'deliveryFee': 'RWF 3,700',
+      'deliveryTime': '30-35 min',
+      'status': 'OPEN',
+      'image': null,
     },
     {
-      'name': 'La Paillotte',
-      'description': 'DF:RWF1,000',
-      'rating': 4,
-      'distance': '5km',
-      'image': 'paillotte.jpg',
-    },
-    {
-      'name': 'Amikus',
-      'description': 'DF:RWF1,000',
-      'rating': 4,
-      'distance': '6km',
-      'image': 'amikus.jpg',
+      'name': 'Vuba Liquor Store',
+      'rating': 3,
+      'distance': '16km',
+      'deliveryFee': 'RWF 3,700',
+      'deliveryTime': '25-45 min',
+      'status': 'OPEN',
+      'image': null,
     },
   ];
 
@@ -68,563 +50,278 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Back Button
-              Container(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.inputBorder.withOpacity(0.3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Deliver to:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.arrow_back_ios,
-                        color: AppColors.onBackground,
-                        size: 18,
+                      Row(
+                        children: [
+                          const Text(
+                            'Bwiza',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.onBackground,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: AppColors.textSecondary,
+                          ),
+                        ],
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ),
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // Rwanda flag icon (mocked)
+                  Container(
+                    width: 32,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Stack(
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Deliver to:',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                const Text(
-                                  'Ruhengeri',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.onBackground,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
                         Container(
                           width: 32,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                          child: Stack(
-                            children: [
-                              Container(
-                                width: 32,
-                                height: 12,
-                                color: AppColors.ukraineBlue,
-                              ),
-                              Positioned(
-                                bottom: 0,
-                                child: Container(
-                                  width: 32,
-                                  height: 12,
-                                  color: AppColors.ukraineYellow,
-                                ),
-                              ),
-                            ],
+                          height: 12,
+                          color: AppColors.ukraineBlue,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          child: Container(
+                            width: 32,
+                            height: 12,
+                            color: AppColors.ukraineYellow,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-
-                    // Search Bar
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.inputBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.search,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              style: const TextStyle(
-                                color: AppColors.onBackground,
-                              ),
-                              decoration: const InputDecoration(
-                                hintText: 'Search and Get it vuba cyane...',
-                                hintStyle: TextStyle(
-                                  color: AppColors.textSecondary,
-                                ),
-                                border: InputBorder.none,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
 
-              // We are Here for You Banner
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(16),
+            // Green open banner
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[700],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.check, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'We are Open 24/7!',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Great news, Kigali! Vuba Vuba is now open 24/7, from Thursday to Sunday. From Monday to Wednesday, we stay open late until 1:00 AM. Order anytime, day or night',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.white),
-                    const SizedBox(width: 12),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(Icons.search, color: AppColors.textSecondary),
+                    ),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'We are Here for You!',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const Text(
-                            'Serving you daily from 8:00 AM to 10:30 PM. Just tap to order, and we deliver',
-                            style: TextStyle(fontSize: 12, color: Colors.white),
-                          ),
-                        ],
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Search for Breakfast',
+                          border: InputBorder.none,
+                          hintStyle: TextStyle(color: AppColors.textSecondary),
+                        ),
+                        style: const TextStyle(color: AppColors.onBackground),
                       ),
                     ),
                   ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 24),
-
-              // Categories Grid
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  children: [
-                    _buildCategoryCard(
-                      'Markets & Bakeries',
-                      Icons.shopping_cart,
-                      AppColors.primary,
-                    ),
-                    _buildCategoryCard(
-                      'Vuba Party',
-                      Icons.celebration,
-                      AppColors.primary,
-                    ),
-                    _buildCategoryCard(
-                      'Restaurants',
-                      Icons.restaurant,
-                      AppColors.primary,
-                    ),
-                    _buildCategoryCard(
-                      'Request a Delivery',
-                      Icons.local_shipping,
-                      AppColors.primary,
-                    ),
-                    _buildCategoryCard(
-                      'Vuba Florist',
-                      Icons.local_florist,
-                      AppColors.error,
-                    ),
-                    _buildCategoryCard(
-                      'More Categories',
-                      Icons.apps,
-                      AppColors.buttonSecondary,
-                    ),
-                  ],
+            // Section title
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'All Vuba Breakfast',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.onBackground,
                 ),
               ),
+            ),
 
-              const SizedBox(height: 32),
-
-              // Every day section
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Every day',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.onBackground,
+            // Store grid
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: GridView.builder(
+                  itemCount: stores.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 1.1,
                   ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Featured Products Horizontal List
-              SizedBox(
-                height: 200,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: _featuredProducts.length,
                   itemBuilder: (context, index) {
-                    final product = _featuredProducts[index];
-                    return Container(
-                      width: 160,
-                      margin: const EdgeInsets.only(right: 16),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.3),
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(12),
-                              ),
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.fastfood,
-                                size: 40,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  product['name'],
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.onBackground,
-                                  ),
-                                ),
-                                Text(
-                                  product['restaurant'],
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      product['price'],
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.onBackground,
-                                      ),
-                                    ),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.star,
-                                          size: 12,
-                                          color: Colors.orange,
-                                        ),
-                                        Text(
-                                          '${product['rating']}',
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          product['distance'],
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                    final store = stores[index];
+                    return StoreCard(store: store);
                   },
                 ),
               ),
-
-              const SizedBox(height: 24),
-
-              // Pay.rw Banner
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                height: 100,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 20,
-                      top: 20,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'Pay.rw',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'PAYING BILLS HAS NEVER BEEN THIS EASY!',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const Text(
-                            'Easily manage your utility bills with the Pay.rw App',
-                            style: TextStyle(fontSize: 8, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      right: 20,
-                      top: 10,
-                      child: Container(
-                        width: 60,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Vuba all day ga mwa section
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Vuba all day ga mwa',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.onBackground,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // All Day Products Grid
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                  childAspectRatio: 0.75,
-                ),
-                itemCount: _allDayProducts.length,
-                itemBuilder: (context, index) {
-                  final product = _allDayProducts[index];
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.3),
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(12),
-                              ),
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.restaurant,
-                                size: 30,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    product['name'],
-                                    style: const TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.onBackground,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        product['description'],
-                                        style: const TextStyle(
-                                          fontSize: 7,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    const Icon(
-                                      Icons.star,
-                                      size: 8,
-                                      color: Colors.orange,
-                                    ),
-                                    Text(
-                                      '${product['rating']}',
-                                      style: const TextStyle(
-                                        fontSize: 7,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 100), // Bottom padding for navigation bar
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildCategoryCard(String title, IconData icon, Color color) {
-    return Container(
-      decoration: BoxDecoration(
+class StoreCard extends StatelessWidget {
+  final Map<String, dynamic> store;
+  const StoreCard({required this.store, Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StoreDetailPage(store: store),
+          ),
+        );
+      },
+      child: Card(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      store['status'],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child:
+                    store['image'] == null
+                        ? Center(
+                          child: Icon(
+                            Icons.store,
+                            size: 40,
+                            color: AppColors.primary,
+                          ),
+                        )
+                        : Image.asset(store['image'], fit: BoxFit.cover),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                store['name'],
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppColors.onBackground,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Row(
+                children: [
+                  Icon(Icons.star, color: Colors.orange, size: 14),
+                  Text(
+                    '${store['rating']}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    store['distance'],
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'DF: ${store['deliveryFee']}  DT: ${store['deliveryTime']}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: AppColors.onBackground,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -22,7 +22,7 @@ class _HomePageState extends State<HomePage> {
   late PageController _pageController;
 
   final List<Widget> _pages = [
-    const StoreFrontPage(),
+    StoreFrontPage(),
     const PrimePage(),
     const OrdersPage(),
     const CartPage(),

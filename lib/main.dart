@@ -19,7 +19,6 @@ import 'screens/about_us_page.dart';
 import 'screens/more_options_page.dart';
 import 'screens/personal_information_page.dart';
 
-
 void main() {
   runApp(const VubaApp());
 }
@@ -111,7 +110,7 @@ class VubaApp extends StatelessWidget {
         '/location-selection': (context) => const LocationSelectionPage(),
         '/map-location-picker': (context) => const MapLocationPickerPage(),
         '/location-details': (context) => const LocationDetailsPage(),
-        '/store-front': (context) => const StoreFrontPage(),
+        '/store-front': (context) => StoreFrontPage(),
         '/prime': (context) => const PrimePage(),
         '/orders': (context) => const OrdersPage(),
         '/cart': (context) => const CartPage(),
