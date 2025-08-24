@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:vuba/models/user.model.dart';
 import '../utils/colors.dart';
 import 'store_front_page.dart';
@@ -6,6 +7,7 @@ import 'prime_page.dart';
 import 'orders_page.dart';
 import 'cart_page.dart';
 import 'more_options_page.dart';
+import '../providers/cartproviders.dart';
 
 class HomePage extends StatefulWidget {
   final String? selectedLocation;
@@ -21,8 +23,10 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   late PageController _pageController;
 
-  final List<Widget> _pages = [
-    StoreFrontPage(),
+  List<Widget> get _pages => [
+    StoreFrontPage(
+      selectedLocationName: widget.selectedLocation ?? "Select location",
+    ),
     const PrimePage(),
     const OrdersPage(),
     const CartPage(),
@@ -72,36 +76,74 @@ class _HomePageState extends State<HomePage> {
             top: BorderSide(color: AppColors.inputBorder, width: 0.5),
           ),
         ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textSecondary,
-          selectedFontSize: 12,
-          unselectedFontSize: 10,
-          iconSize: 24,
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.storefront),
-              label: 'Store Front',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.local_offer),
-              label: 'Prime',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long),
-              label: 'Orders',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.shopping_cart),
-              label: 'Cart',
-            ),
-            BottomNavigationBarItem(icon: Icon(Icons.menu), label: 'More'),
-          ],
+        child: Consumer<CartProvider>(
+          builder: (context, cartProvider, _) {
+            int cartCount = cartProvider.totalItems;
+            return BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: AppColors.primary,
+              unselectedItemColor: AppColors.textSecondary,
+              selectedFontSize: 12,
+              unselectedFontSize: 10,
+              iconSize: 24,
+              currentIndex: _selectedIndex,
+              onTap: _onItemTapped,
+              items: [
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.storefront),
+                  label: 'Store Front',
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.local_offer),
+                  label: 'Prime',
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.receipt_long),
+                  label: 'Orders',
+                ),
+                BottomNavigationBarItem(
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.shopping_cart),
+                      if (cartCount > 0)
+                        Positioned(
+                          right: -6,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              '$cartCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  label: 'Cart',
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.menu),
+                  label: 'More',
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

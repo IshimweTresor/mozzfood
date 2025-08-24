@@ -1,116 +1,40 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
+import '../models/vendor.model.dart';
+import '../models/menuItem.model.dart' hide Vendor;
+import '../api/menuItem.api.dart';
+import 'package:provider/provider.dart';
+import '../providers/cartproviders.dart';
 
 class StoreDetailPage extends StatefulWidget {
-  final Map<String, dynamic> store;
-  const StoreDetailPage({required this.store, Key? key}) : super(key: key);
+  final Vendor vendor;
+  const StoreDetailPage({required this.vendor, Key? key}) : super(key: key);
 
   @override
   State<StoreDetailPage> createState() => _StoreDetailPageState();
 }
 
 class _StoreDetailPageState extends State<StoreDetailPage> {
-  late String selectedCategory;
-
-  // Example categories for each store type
-  Map<String, List<String>> getCategoriesForStore(String name) {
-    if (name.contains('Zenn Pharmacy')) {
-      return {
-        'Most Popular': ['Innotex Condom', 'Durex extra time 10 pieces'],
-        'Condoms & Lubricant': [
-          'Innotex Condom',
-          'Durex extra time 10 pieces',
-          'Armour Condom',
-        ],
-        'Oral Care': ['Listerine Cool Mint'],
-      };
-    } else if (name.contains('Honest') || name.contains('Supermarket')) {
-      return {
-        'Most Popular': ['Rice 5kg', 'Cooking Oil 1L'],
-        'Groceries': ['Rice 5kg', 'Sugar 1kg', 'Milk 500ml'],
-        'Canned Goods': ['Tomato Paste'],
-        'Snacks': ['Milk 500ml'],
-      };
-    } else if (name.contains('Inyange')) {
-      return {
-        'Most Popular': ['Inyange Milk 1L', 'Inyange Yogurt'],
-        'Drinks': ['Inyange Milk 1L', 'Inyange Water 1.5L', 'Inyange Juice'],
-        'Dairy': ['Inyange Yogurt'],
-      };
-    } else if (name.contains('Liquor')) {
-      return {
-        'Most Popular': ['Hennessy', 'Smirnoff Vodka'],
-        'Whiskey': ['Jameson', 'Hennessy'],
-        'Vodka': ['Smirnoff Vodka'],
-        'Rum': ['Bacardi'],
-      };
-    }
-    return {
-      'All': ['Sample Product'],
-    };
-  }
-
-  // Map product name to details for each store type
-  Map<String, Map<String, String>> getProductDetailsForStore(String name) {
-    if (name.contains('Zenn Pharmacy')) {
-      return {
-        'Innotex Condom': {'price': 'RWF2,000', 'description': 'B/3'},
-        'Durex extra time 10 pieces': {
-          'price': 'RWF7,000',
-          'description':
-              'Looking for extended long lasting pleasure? Try this.',
-        },
-        'Armour Condom': {
-          'price': 'RWF2,000',
-          'description': 'strawberry flavour',
-        },
-        'Listerine Cool Mint': {'price': '', 'description': '250ml'},
-      };
-    } else if (name.contains('Honest') || name.contains('Supermarket')) {
-      return {
-        'Rice 5kg': {'price': 'RWF8,000', 'description': 'Premium long grain'},
-        'Cooking Oil 1L': {'price': 'RWF2,500', 'description': 'Sunflower'},
-        'Tomato Paste': {'price': 'RWF1,200', 'description': '400g can'},
-        'Sugar 1kg': {'price': 'RWF1,800', 'description': ''},
-        'Milk 500ml': {'price': 'RWF700', 'description': 'Fresh'},
-      };
-    } else if (name.contains('Inyange')) {
-      return {
-        'Inyange Milk 1L': {'price': 'RWF1,200', 'description': 'Fresh milk'},
-        'Inyange Yogurt': {'price': 'RWF800', 'description': 'Strawberry'},
-        'Inyange Water 1.5L': {
-          'price': 'RWF600',
-          'description': 'Mineral water',
-        },
-        'Inyange Juice': {'price': 'RWF1,000', 'description': 'Mango'},
-      };
-    } else if (name.contains('Liquor')) {
-      return {
-        'Smirnoff Vodka': {'price': 'RWF12,000', 'description': '750ml'},
-        'Hennessy': {'price': 'RWF110,000', 'description': '700ml'},
-        'Bacardi': {'price': 'RWF15,000', 'description': '750ml'},
-        'Jameson': {'price': 'RWF18,000', 'description': '700ml'},
-      };
-    }
-    return {
-      'Sample Product': {'price': 'RWF1,000', 'description': 'Description'},
-    };
-  }
+  late Future<List<MenuItem>> _menuItemsFuture;
 
   @override
   void initState() {
     super.initState();
-    final categories = getCategoriesForStore(widget.store['name'] ?? '');
-    selectedCategory = categories.keys.first;
+    _menuItemsFuture = _fetchMenuItems();
+  }
+
+  Future<List<MenuItem>> _fetchMenuItems() async {
+    final response = await MenuItemApi.getAllMenuItems(
+      vendorId: widget.vendor.id,
+    );
+    if (response.success && response.data != null) {
+      return response.data!;
+    }
+    return [];
   }
 
   @override
   Widget build(BuildContext context) {
-    final categories = getCategoriesForStore(widget.store['name'] ?? '');
-    final productDetails = getProductDetailsForStore(
-      widget.store['name'] ?? '',
-    );
-    final products = categories[selectedCategory] ?? [];
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -121,7 +45,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          widget.store['name'],
+          widget.vendor.name ?? '',
           style: const TextStyle(
             color: AppColors.onBackground,
             fontWeight: FontWeight.bold,
@@ -187,109 +111,62 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.store['name'],
+                  widget.vendor.name ?? '',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
                     color: AppColors.onBackground,
                   ),
                 ),
-                Row(
-                  children: [
-                    Icon(Icons.star, color: Colors.orange, size: 14),
-                    Text(
-                      '${widget.store['rating']}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
+                if (widget.vendor.address != null)
+                  Text(
+                    widget.vendor.address!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      widget.store['distance'],
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
+                  ),
+                if (widget.vendor.description != null)
+                  Text(
+                    widget.vendor.description!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'DF: ${widget.store['deliveryFee']}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'DT: ${widget.store['deliveryTime']}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
                 const SizedBox(height: 4),
                 Row(
-                  children: const [
-                    Text(
-                      '49 items',
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
                       ),
-                    ),
-                    SizedBox(width: 16),
-                    Text(
-                      'Minimum Order: RWF3,000',
-                      style: TextStyle(color: AppColors.textSecondary),
+                      decoration: BoxDecoration(
+                        color:
+                            widget.vendor.isOpen == true
+                                ? Colors.green
+                                : Colors.red,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        widget.vendor.isOpen == true ? 'OPEN' : 'CLOSED',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          // Dynamic Tabs
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final category in categories.keys)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(
-                          category,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color:
-                                selectedCategory == category
-                                    ? Colors.white
-                                    : AppColors.textSecondary,
-                          ),
-                        ),
-                        selected: selectedCategory == category,
-                        selectedColor: AppColors.primary,
-                        backgroundColor: AppColors.surface,
-                        onSelected: (_) {
-                          setState(() {
-                            selectedCategory = category;
-                          });
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          // Product list (mocked)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              "Don't miss out on what everyone's raving about!!",
+              "Vendor Menu",
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontStyle: FontStyle.italic,
@@ -297,29 +174,43 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: products.length,
-              itemBuilder: (context, index) {
-                final productName = products[index];
-                final details = productDetails[productName] ?? {};
-                return _ProductListItem(
-                  name: productName,
-                  price: details['price'] ?? '',
-                  description: details['description'] ?? '',
-                  image: null,
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) {
-                        return ProductDetailSheet(
-                          name: productName,
-                          price: details['price'] ?? '',
-                          description: details['description'] ?? '',
-                          image: null,
-                          storeName: widget.store['name'] ?? '',
+            child: FutureBuilder<List<MenuItem>>(
+              future: _menuItemsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Failed to load menu items'));
+                }
+                final items = snapshot.data ?? [];
+                if (items.isEmpty) {
+                  return const Center(child: Text('No menu items found'));
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return _ProductListItem(
+                      name: item.name ?? '',
+                      price: item.price != null ? 'RWF ${item.price}' : '',
+                      description: item.description ?? '',
+                      image: item.imageUrl,
+                      // Inside your ListView.builder in StoreDetailPage:
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) {
+                            return ProductDetailSheet(
+                              menuItem: item, // Pass the MenuItem object
+                              storeName: widget.vendor.name ?? '',
+                            );
+                          },
                         );
                       },
                     );
@@ -357,7 +248,12 @@ class _ProductListItem extends StatelessWidget {
         leading:
             image == null
                 ? const Icon(Icons.shopping_bag, color: AppColors.primary)
-                : Image.asset(image!),
+                : Image.network(
+                  image!,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                ),
         title: Text(
           name,
           style: const TextStyle(
@@ -393,17 +289,13 @@ class _ProductListItem extends StatelessWidget {
   }
 }
 
+
+
 class ProductDetailSheet extends StatefulWidget {
-  final String name;
-  final String price;
-  final String description;
-  final String? image;
+  final MenuItem menuItem;
   final String storeName;
   const ProductDetailSheet({
-    required this.name,
-    required this.price,
-    required this.description,
-    this.image,
+    required this.menuItem,
     required this.storeName,
     Key? key,
   }) : super(key: key);
@@ -417,17 +309,16 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final priceValue =
-        int.tryParse(widget.price.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final priceValue = widget.menuItem.price ?? 0;
     final total = priceValue * quantity;
     return DraggableScrollableSheet(
-      initialChildSize: 0.65,
+      initialChildSize: 0.7,
       minChildSize: 0.4,
       maxChildSize: 0.95,
       builder: (context, scrollController) {
         return Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -442,135 +333,212 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: AppColors.textSecondary.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-                if (widget.image == null)
-                  Center(
-                    child: Icon(
-                      Icons.shopping_bag,
-                      size: 80,
-                      color: AppColors.primary,
-                    ),
-                  )
-                else
-                  Center(child: Image.asset(widget.image!, height: 100)),
-                const SizedBox(height: 16),
+                Center(
+                  child: widget.menuItem.imageUrl == null
+                      ? Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.shopping_bag,
+                            size: 60,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            widget.menuItem.imageUrl!,
+                            height: 140,
+                            width: 140,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 18),
                 Text(
-                  widget.name,
+                  widget.menuItem.name ?? '',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 22,
+                    color: AppColors.onBackground,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
                   widget.storeName,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 16,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
-                  widget.price,
+                  widget.menuItem.price != null ? 'RWF ${widget.menuItem.price}' : '',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                    fontSize: 20,
+                    color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 14),
                 const Text(
                   'Description',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppColors.onBackground,
+                  ),
                 ),
-                Text(widget.description.isNotEmpty ? widget.description : '-'),
-                const SizedBox(height: 16),
+                const SizedBox(height: 4),
+                Text(
+                  widget.menuItem.description?.isNotEmpty == true
+                      ? widget.menuItem.description!
+                      : '-',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 18),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
                       'Total:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppColors.onBackground,
+                      ),
                     ),
                     Text(
-                      'RWF ${total.toString()}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      'RWF $total',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
-                      onPressed:
-                          quantity > 1
+                const SizedBox(height: 16),
+                Center(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            color: AppColors.primary,
+                          ),
+                          onPressed: quantity > 1
                               ? () => setState(() => quantity--)
                               : null,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            '$quantity',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: AppColors.onBackground,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.add_circle_outline,
+                            color: AppColors.primary,
+                          ),
+                          onPressed: () => setState(() => quantity++),
+                        ),
+                      ],
                     ),
-                    Text('$quantity', style: const TextStyle(fontSize: 18)),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () => setState(() => quantity++),
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(
+                      Icons.shopping_cart_checkout_rounded,
+                      color: Colors.white,
+                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green[700],
+                      backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     onPressed: () {
+                      Provider.of<CartProvider>(context, listen: false)
+                          .addToCart(widget.menuItem, quantity);
                       Navigator.of(context).pop();
                       showDialog(
                         context: context,
-                        builder:
-                            (context) => AlertDialog(
-                              backgroundColor: Colors.grey[900],
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                        builder: (context) => AlertDialog(
+                          backgroundColor: AppColors.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(
+                                Icons.check_circle,
+                                color: AppColors.primary,
+                                size: 48,
                               ),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Text(
-                                    'SUCCESS',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'Product added to cart\nSuccessfully !',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text(
-                                    'Ok',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
+                              SizedBox(height: 12),
+                              Text(
+                                'SUCCESS',
+                                style: TextStyle(
+                                  color: AppColors.onBackground,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
                                 ),
-                              ],
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Product added to cart\nSuccessfully!',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text(
+                                'Ok',
+                                style: TextStyle(color: AppColors.primary),
+                              ),
                             ),
+                          ],
+                        ),
                       );
                     },
-                    child: const Text(
+                    label: const Text(
                       'Add to cart',
-                      style: TextStyle(fontSize: 18),
+                      style: TextStyle(fontSize: 18, color: Colors.white),
                     ),
                   ),
                 ),

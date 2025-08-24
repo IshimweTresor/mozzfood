@@ -1,49 +1,38 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
-
+import '../api/vendor.api.dart';
+import '../models/vendor.model.dart';
 import 'store_detail_page.dart';
 
-class StoreFrontPage extends StatelessWidget {
-  StoreFrontPage({super.key});
+class StoreFrontPage extends StatefulWidget {
+  final String selectedLocationName;
+  // Pass selectedLocationName from LocationSelectionPage or HomePage
 
-  final List<Map<String, dynamic>> stores = [
-    {
-      'name': 'Zenn Pharmacy',
-      'rating': 4,
-      'distance': '14km',
-      'deliveryFee': 'RWF 3,300',
-      'deliveryTime': '35-40 min',
-      'status': 'OPEN',
-      'image': null,
-    },
-    {
-      'name': 'Honest (Horebu) Supermarket',
-      'rating': 3,
-      'distance': '14km',
-      'deliveryFee': 'RWF 3,300',
-      'deliveryTime': '35-45 min',
-      'status': 'OPEN',
-      'image': null,
-    },
-    {
-      'name': 'Inyange Products',
-      'rating': 3,
-      'distance': '16km',
-      'deliveryFee': 'RWF 3,700',
-      'deliveryTime': '30-35 min',
-      'status': 'OPEN',
-      'image': null,
-    },
-    {
-      'name': 'Vuba Liquor Store',
-      'rating': 3,
-      'distance': '16km',
-      'deliveryFee': 'RWF 3,700',
-      'deliveryTime': '25-45 min',
-      'status': 'OPEN',
-      'image': null,
-    },
-  ];
+  const StoreFrontPage({Key? key, required this.selectedLocationName})
+    : super(key: key);
+
+  @override
+  State<StoreFrontPage> createState() => _StoreFrontPageState();
+}
+
+class _StoreFrontPageState extends State<StoreFrontPage> {
+  late Future<List<Vendor>> _vendorsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _vendorsFuture = _fetchVendors();
+  }
+
+  Future<List<Vendor>> _fetchVendors() async {
+    final response = await VendorApi.getAllVendors();
+    print('Fetched vendors: ${response.data}');
+    if (response.success && response.data != null) {
+      print('Vendors type: ${response.data.runtimeType}');
+      return response.data!;
+    }
+    return [];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +42,7 @@ class StoreFrontPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top bar
+            // Top bar with selected location
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
@@ -71,9 +60,9 @@ class StoreFrontPage extends StatelessWidget {
                       ),
                       Row(
                         children: [
-                          const Text(
-                            'Bwiza',
-                            style: TextStyle(
+                          Text(
+                            widget.selectedLocationName,
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: AppColors.onBackground,
@@ -195,23 +184,43 @@ class StoreFrontPage extends StatelessWidget {
               ),
             ),
 
-            // Store grid
+            // Store grid (from API)
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: GridView.builder(
-                  itemCount: stores.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 1.1,
-                  ),
-                  itemBuilder: (context, index) {
-                    final store = stores[index];
-                    return StoreCard(store: store);
-                  },
-                ),
+              child: FutureBuilder<List<Vendor>>(
+                future: _vendorsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return const Center(child: Text('Failed to load vendors'));
+                  }
+                  final vendors = snapshot.data ?? [];
+                  if (vendors.isEmpty) {
+                    return const Center(child: Text('No vendors found'));
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: GridView.builder(
+                      itemCount: vendors.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 1.1,
+                          ),
+                      itemBuilder: (context, index) {
+                        final vendor = vendors[index];
+                        return StoreCard(vendor: vendor);
+                      },
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -222,8 +231,8 @@ class StoreFrontPage extends StatelessWidget {
 }
 
 class StoreCard extends StatelessWidget {
-  final Map<String, dynamic> store;
-  const StoreCard({required this.store, Key? key}) : super(key: key);
+  final Vendor vendor;
+  const StoreCard({required this.vendor, Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -233,94 +242,127 @@ class StoreCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => StoreDetailPage(store: store),
+            builder: (context) => StoreDetailPage(vendor: vendor),
           ),
         );
       },
       child: Card(
+        elevation: 4,
         color: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                  child:
+                      vendor.imageUrl == null
+                          ? Container(
+                            height: 90,
+                            color: AppColors.primary.withOpacity(0.1),
+                            child: const Center(
+                              child: Icon(
+                                Icons.store,
+                                size: 40,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          )
+                          : Image.network(
+                            vendor.imageUrl!,
+                            height: 90,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                ),
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
+                      horizontal: 10,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green,
+                      color: vendor.isOpen == true ? Colors.green : Colors.red,
                       borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                        ),
+                      ],
                     ),
                     child: Text(
-                      store['status'],
+                      vendor.isOpen == true ? 'OPEN' : 'CLOSED',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child:
-                    store['image'] == null
-                        ? Center(
-                          child: Icon(
-                            Icons.store,
-                            size: 40,
-                            color: AppColors.primary,
-                          ),
-                        )
-                        : Image.asset(store['image'], fit: BoxFit.cover),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                store['name'],
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppColors.onBackground,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Row(
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.star, color: Colors.orange, size: 14),
                   Text(
-                    '${store['rating']}',
+                    vendor.name ?? '',
                     style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: AppColors.onBackground,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    store['distance'],
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        size: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          vendor.address ?? '',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (vendor.location?.lat != null &&
+                      vendor.location?.lng != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '(${vendor.location!.lat?.toStringAsFixed(4)}, ${vendor.location!.lng?.toStringAsFixed(4)})',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                'DF: ${store['deliveryFee']}  DT: ${store['deliveryTime']}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
