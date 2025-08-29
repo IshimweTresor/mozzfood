@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:vuba/models/user.model.dart';
 import 'order_summary_page.dart';
 
 class MobileWalletNumbersPage extends StatefulWidget {
   final String paymentMethod;
+  final SavedLocation selectedLocation;
 
-  const MobileWalletNumbersPage({super.key, required this.paymentMethod});
+  const MobileWalletNumbersPage({super.key, required this.paymentMethod, required this.selectedLocation});
 
   @override
   State<MobileWalletNumbersPage> createState() =>
@@ -12,8 +14,19 @@ class MobileWalletNumbersPage extends StatefulWidget {
 }
 
 class _MobileWalletNumbersPageState extends State<MobileWalletNumbersPage> {
-  List<String> _walletNumbers = ['0784107365'];
+   late List<String> _walletNumbers;
   final TextEditingController _newNumberController = TextEditingController();
+
+   @override
+  void initState() {
+    super.initState();
+    // Use the phone from the selected address as the default wallet number
+    _walletNumbers = [
+      if (widget.selectedLocation.phone != null &&
+          widget.selectedLocation.phone!.isNotEmpty)
+        widget.selectedLocation.phone!,
+    ];
+  }
 
   @override
   void dispose() {
@@ -130,6 +143,7 @@ class _MobileWalletNumbersPageState extends State<MobileWalletNumbersPage> {
                 (context) => OrderSummaryPage(
                   paymentMethod: widget.paymentMethod,
                   selectedNumber: number,
+                  selectedLocation: widget.selectedLocation,
                 ),
           ),
         );

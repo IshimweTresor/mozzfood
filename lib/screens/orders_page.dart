@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
+import '../api/order.api.dart';
+import '../models/order.model.dart'; // Use your real Order model
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -11,49 +14,62 @@ class OrdersPage extends StatefulWidget {
 }
 
 class _OrdersPageState extends State<OrdersPage> {
-  String _selectedTab = 'Order History'; // 'Order History' or 'Pickup History'
-  String _selectedStatus = 'Processing'; // 'Processing', 'Completed', 'Failed'
+  String _selectedTab = 'Order History';
+  String _selectedStatus = 'Processing';
 
-  // Mock order data - replace with actual state management
-  List<OrderItem> _orders = [
-    OrderItem(
-      id: 'ORD001',
-      date: DateTime.now().subtract(const Duration(hours: 2)),
-      status: 'Processing',
-      items: [
-        OrderProduct(
-          name: 'Fresh Tomatoes',
-          quantity: 2,
-          price: 2500,
-          image: '🍅',
-        ),
-        OrderProduct(name: 'Bread', quantity: 1, price: 1500, image: '🍞'),
-      ],
-      total: 6500,
-      deliveryAddress: 'Kigali, Gasabo District',
-    ),
-    OrderItem(
-      id: 'ORD002',
-      date: DateTime.now().subtract(const Duration(days: 1)),
-      status: 'Completed',
-      items: [
-        OrderProduct(name: 'Milk', quantity: 3, price: 1800, image: '🥛'),
-        OrderProduct(name: 'Rice', quantity: 1, price: 3500, image: '🍚'),
-      ],
-      total: 8900,
-      deliveryAddress: 'Kigali, Nyarugenge District',
-    ),
-    OrderItem(
-      id: 'ORD003',
-      date: DateTime.now().subtract(const Duration(days: 3)),
-      status: 'Failed',
-      items: [
-        OrderProduct(name: 'Bananas', quantity: 5, price: 500, image: '🍌'),
-      ],
-      total: 3500,
-      deliveryAddress: 'Kigali, Kicukiro District',
-    ),
-  ];
+  List<Order> _orders = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
+  }
+
+  Future<void> _fetchOrders() async {
+    setState(() => _isLoading = true);
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    final response = await OrderApi.getOrders(token: token);
+    if (response.success && response.data != null) {
+      setState(() {
+        _orders = response.data!;
+        _isLoading = false;
+      });
+    } else {
+      setState(() => _isLoading = false);
+      // Optionally show error
+    }
+  }
+
+  List<Order> _getFilteredOrders() {
+    if (_selectedStatus == 'Processing') {
+      // Show orders that are pending payment or in progress
+      return _orders
+          .where(
+            (order) =>
+                order.paymentStatus == 'pending' ||
+                order.orderStatus == 'pending' ||
+                order.orderStatus == 'accepted' ||
+                order.orderStatus == 'preparing' ||
+                order.orderStatus == 'on_the_way',
+          )
+          .toList();
+    } else if (_selectedStatus == 'Completed') {
+      return _orders
+          .where((order) => order.orderStatus == 'delivered')
+          .toList();
+    } else if (_selectedStatus == 'Failed') {
+      return _orders
+          .where((order) => order.orderStatus == 'cancelled')
+          .toList();
+    }
+    return _orders;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +85,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      Navigator.pop(context);
+                      Navigator.popAndPushNamed(context, '/home');
                     },
                     child: Container(
                       padding: const EdgeInsets.all(8),
@@ -293,7 +309,9 @@ class _OrdersPageState extends State<OrdersPage> {
             // Content based on selected status and whether there are orders
             Expanded(
               child:
-                  _getFilteredOrders().isEmpty
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _getFilteredOrders().isEmpty
                       ? _buildEmptyState()
                       : _buildOrdersList(),
             ),
@@ -301,10 +319,6 @@ class _OrdersPageState extends State<OrdersPage> {
         ),
       ),
     );
-  }
-
-  List<OrderItem> _getFilteredOrders() {
-    return _orders.where((order) => order.status == _selectedStatus).toList();
   }
 
   Widget _buildEmptyState() {
@@ -399,7 +413,7 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  Widget _buildOrderCard(OrderItem order) {
+  Widget _buildOrderCard(Order order) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -419,7 +433,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Order #${order.id}',
+                    'Order #${order.id ?? ''}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -428,7 +442,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _formatDate(order.date),
+                    _formatDate(order.createdAt ?? DateTime.now()),
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -442,15 +456,15 @@ class _OrdersPageState extends State<OrdersPage> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: _getStatusColor(order.status).withOpacity(0.1),
+                  color: _getStatusColor(order).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  order.status,
+                  _getStatusText(order),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: _getStatusColor(order.status),
+                    color: _getStatusColor(order),
                   ),
                 ),
               ),
@@ -481,7 +495,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       ),
                     ),
                     Text(
-                      order.deliveryAddress,
+                      'Lat: ${order.location.lat ?? '-'}, Lng: ${order.location.lng ?? '-'}',
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.onBackground,
@@ -501,7 +515,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     ),
                   ),
                   Text(
-                    'RWF ${order.total.toStringAsFixed(0)}',
+                    'RWF ${order.totalPrice.toStringAsFixed(0)}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -514,13 +528,16 @@ class _OrdersPageState extends State<OrdersPage> {
           ),
 
           // Action Buttons
-          if (order.status == 'Processing') ...[
+          if (order.paymentStatus == 'pending' ||
+              order.orderStatus == 'pending') ...[
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => _cancelOrder(order),
+                    onPressed: () {
+                      // TODO: Implement cancel order
+                    },
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.error),
                       shape: RoundedRectangleBorder(
@@ -536,7 +553,9 @@ class _OrdersPageState extends State<OrdersPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _trackOrder(order),
+                    onPressed: () {
+                      // TODO: Implement track order
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
@@ -553,12 +572,14 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
           ],
 
-          if (order.status == 'Completed') ...[
+          if (order.orderStatus == 'delivered') ...[
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => _reorderItems(order),
+                onPressed: () {
+                  // TODO: Implement reorder
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
@@ -577,28 +598,20 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  Widget _buildOrderItemRow(OrderProduct item) {
+  Widget _buildOrderItemRow(OrderItem item) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Text(item.image, style: const TextStyle(fontSize: 20)),
+          const Icon(Icons.fastfood, color: Colors.white, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${item.quantity}x ${item.name}',
+              'x${item.quantity} - ${item.itemId}',
               style: const TextStyle(
                 fontSize: 14,
                 color: AppColors.onBackground,
               ),
-            ),
-          ),
-          Text(
-            'RWF ${(item.price * item.quantity).toStringAsFixed(0)}',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
             ),
           ),
         ],
@@ -622,80 +635,30 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Processing':
-        return Colors.orange;
-      case 'Completed':
-        return AppColors.success;
-      case 'Failed':
-        return AppColors.error;
-      default:
-        return AppColors.textSecondary;
+  Color _getStatusColor(Order order) {
+    if (order.paymentStatus == 'pending' || order.orderStatus == 'pending') {
+      return Colors.orange;
     }
+    if (order.orderStatus == 'delivered') {
+      return AppColors.success;
+    }
+    if (order.orderStatus == 'cancelled') {
+      return AppColors.error;
+    }
+    return AppColors.textSecondary;
   }
 
-  void _cancelOrder(OrderItem order) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: AppColors.surface,
-            title: const Text(
-              'Cancel Order',
-              style: TextStyle(color: AppColors.onBackground),
-            ),
-            content: Text(
-              'Are you sure you want to cancel order #${order.id}?',
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Keep Order',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    order.status = 'Failed';
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Order cancelled successfully'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                },
-                child: const Text(
-                  'Cancel Order',
-                  style: TextStyle(color: AppColors.error),
-                ),
-              ),
-            ],
-          ),
-    );
-  }
-
-  void _trackOrder(OrderItem order) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Tracking order #${order.id}...'),
-        backgroundColor: AppColors.primary,
-      ),
-    );
-  }
-
-  void _reorderItems(OrderItem order) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Items added to cart'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+  String _getStatusText(Order order) {
+    if (order.paymentStatus == 'pending' || order.orderStatus == 'pending') {
+      return 'Processing';
+    }
+    if (order.orderStatus == 'delivered') {
+      return 'Completed';
+    }
+    if (order.orderStatus == 'cancelled') {
+      return 'Failed';
+    }
+    return order.orderStatus;
   }
 
   String _getEmptyStateTitle() {
@@ -711,37 +674,4 @@ class _OrdersPageState extends State<OrdersPage> {
   // Helper functions for trigonometry
   double _cos(double angle) => math.cos(angle);
   double _sin(double angle) => math.sin(angle);
-}
-
-// Data classes
-class OrderItem {
-  final String id;
-  final DateTime date;
-  String status;
-  final List<OrderProduct> items;
-  final double total;
-  final String deliveryAddress;
-
-  OrderItem({
-    required this.id,
-    required this.date,
-    required this.status,
-    required this.items,
-    required this.total,
-    required this.deliveryAddress,
-  });
-}
-
-class OrderProduct {
-  final String name;
-  final int quantity;
-  final double price;
-  final String image;
-
-  OrderProduct({
-    required this.name,
-    required this.quantity,
-    required this.price,
-    required this.image,
-  });
 }

@@ -237,10 +237,16 @@ Future<void> _loadAddresses() async {
     );
   }
 
-  void _proceedToCheckout() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const PaymentMethodPage()),
-    );
+void _proceedToCheckout() {
+    if (_selectedIndex != null) {
+      final selectedAddress = _addresses[_selectedIndex!];
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => PaymentMethodPage(selectedLocation: selectedAddress),
+        ),
+      );
+    }
   }
 }

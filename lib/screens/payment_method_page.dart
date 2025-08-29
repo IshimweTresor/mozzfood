@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:vuba/models/user.model.dart';
 import '../utils/colors.dart';
 import 'mobile_wallet_numbers_page.dart';
 import 'order_summary_page.dart';
 
 class PaymentMethodPage extends StatefulWidget {
-  const PaymentMethodPage({super.key});
+    final SavedLocation selectedLocation;
+  const PaymentMethodPage({super.key, required this.selectedLocation});
 
   @override
   State<PaymentMethodPage> createState() => _PaymentMethodPageState();
@@ -167,7 +169,6 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
                         // Check if it's a mobile money option
                         if (method['name'] == 'MOMO by MTN' ||
                             method['name'] == 'Airtel Money') {
-                          // Navigate to mobile wallet numbers page
                           Future.delayed(const Duration(milliseconds: 200), () {
                             Navigator.push(
                               context,
@@ -175,6 +176,9 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
                                 builder:
                                     (context) => MobileWalletNumbersPage(
                                       paymentMethod: method['name'],
+                                      selectedLocation:
+                                          widget
+                                              .selectedLocation, // Pass the address!
                                     ),
                               ),
                             );
