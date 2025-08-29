@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../api/user.api.dart';
+import '../models/user.model.dart';
 
 class PersonalInformationPage extends StatefulWidget {
   const PersonalInformationPage({super.key});
@@ -11,21 +14,15 @@ class PersonalInformationPage extends StatefulWidget {
 }
 
 class _PersonalInformationPageState extends State<PersonalInformationPage> {
-  String _selectedTab = 'Details'; // 'Details', 'Edit Details', 'Security'
+  String _selectedTab = 'Details';
+  User? _user;
+  bool _loading = true;
 
   // Controllers for Edit Details
-  final TextEditingController _firstNameController = TextEditingController(
-    text: 'ISHIMWE',
-  );
-  final TextEditingController _lastNameController = TextEditingController(
-    text: 'TRESOR',
-  );
-  final TextEditingController _phoneController = TextEditingController(
-    text: '250784107365',
-  );
-  final TextEditingController _emailController = TextEditingController(
-    text: 'ishimwet15@gmail.com',
-  );
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   // Controllers for Security
@@ -34,6 +31,77 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUser();
+  }
+
+  Future<void> _fetchUser() async {
+    setState(() => _loading = true);
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    final response = await UserApi.getUserProfile(token);
+    if (response.success && response.data != null) {
+      setState(() {
+        _user = response.data!;
+        // Split name for first/last name fields
+        final names = _user!.name.split(' ');
+        _firstNameController.text = names.isNotEmpty ? names.first : '';
+        _lastNameController.text =
+            names.length > 1 ? names.sublist(1).join(' ') : '';
+        _phoneController.text = _user!.phone;
+        _emailController.text = _user!.email;
+        _loading = false;
+      });
+    } else {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _updateAccount() async {
+    if (_firstNameController.text.isEmpty ||
+        _lastNameController.text.isEmpty ||
+        _phoneController.text.isEmpty ||
+        _emailController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all required fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null) return;
+
+    final name = '${_firstNameController.text} ${_lastNameController.text}';
+    final response = await UserApi.updateUserProfile(token: token, name: name);
+    if (response.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _fetchUser();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response.message ?? 'Failed to update account'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // You would implement password change with a real API call here
 
   @override
   void dispose() {
@@ -46,79 +114,6 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
-  }
-
-  void _updateAccount() {
-    // Validate form
-    if (_firstNameController.text.isEmpty ||
-        _lastNameController.text.isEmpty ||
-        _phoneController.text.isEmpty ||
-        _emailController.text.isEmpty) {
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // TODO: Implement account update logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Account updated successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _changePassword() {
-    // Validate password fields
-    if (_recentPasswordController.text.isEmpty ||
-        _newPasswordController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all password fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (_newPasswordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('New password and confirm password do not match'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (_newPasswordController.text.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password must be at least 6 characters long'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // TODO: Implement password change logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Password changed successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    // Clear the password fields
-    _recentPasswordController.clear();
-    _newPasswordController.clear();
-    _confirmPasswordController.clear();
   }
 
   @override
@@ -140,64 +135,64 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // Profile Section
-          Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                // Profile Picture
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF4A90E2),
-                    border: Border.all(color: Colors.white, width: 3),
+      body:
+          _loading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                children: [
+                  // Profile Section
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        // Profile Picture
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF4A90E2),
+                            border: Border.all(color: Colors.white, width: 3),
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            size: 40,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // User Name
+                        Text(
+                          _user?.name ?? '',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.onBackground,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.person,
-                    size: 40,
-                    color: Colors.white,
+                  // Tab Navigation
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildTab('Details')),
+                        Expanded(child: _buildTab('Edit Details')),
+                        Expanded(child: _buildTab('Security')),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // User Name
-                const Text(
-                  'ISHIMWE TRESOR',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.onBackground,
+                  // Tab Content
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.all(20),
+                      child: _buildTabContent(),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Tab Navigation
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(child: _buildTab('Details')),
-                Expanded(child: _buildTab('Edit Details')),
-                Expanded(child: _buildTab('Security')),
-              ],
-            ),
-          ),
-
-          // Tab Content
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(20),
-              child: _buildTabContent(),
-            ),
-          ),
-        ],
-      ),
+                ],
+              ),
     );
   }
 
@@ -252,24 +247,17 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-
-          // Names
-          _buildDetailItem('Names', 'ISHIMWE TRESOR'),
+          _buildDetailItem('Names', _user?.name ?? ''),
           const SizedBox(height: 24),
-
-          // Telephone
-          _buildDetailItem('Telephone', '250784107365'),
+          _buildDetailItem('Telephone', _user?.phone ?? ''),
           const SizedBox(height: 24),
-
-          // Email
-          _buildDetailItem('Email', 'ishimwet15@gmail.com'),
+          _buildDetailItem('Email', _user?.email ?? ''),
           const SizedBox(height: 24),
-
-          // Current Browsing Country
-          _buildDetailItem('Current Browsing Country', 'RWANDA'),
+          _buildDetailItem(
+            'Current Browsing Country',
+            _user?.location?.lat != null ? 'RWANDA' : '',
+          ),
           const SizedBox(height: 40),
-
-          // Delete Account Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -302,8 +290,6 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-
-          // First Name
           const Text(
             'First Name',
             style: TextStyle(
@@ -313,35 +299,14 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.person,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _firstNameController.text,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.onBackground,
-                    ),
-                  ),
-                ),
-              ],
+          TextField(
+            controller: _firstNameController,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: 'First Name',
             ),
           ),
           const SizedBox(height: 20),
-
-          // Last Name
           const Text(
             'Last name',
             style: TextStyle(
@@ -351,35 +316,14 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.person,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _lastNameController.text,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.onBackground,
-                    ),
-                  ),
-                ),
-              ],
+          TextField(
+            controller: _lastNameController,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: 'Last Name',
             ),
           ),
           const SizedBox(height: 20),
-
-          // Telephone
           const Text(
             'Telephone',
             style: TextStyle(
@@ -389,35 +333,15 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
+          TextField(
+            controller: _phoneController,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: 'Telephone',
             ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.phone,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _phoneController.text,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.onBackground,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            enabled: false, // Usually phone/email are not editable
           ),
           const SizedBox(height: 20),
-
-          // Email
           const Text(
             'Email',
             style: TextStyle(
@@ -427,78 +351,15 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: 'Email',
             ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.email,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _emailController.text,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.onBackground,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Password
-          const Text(
-            'Password',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppColors.onBackground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.lock,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    '••••••••',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.onBackground,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.visibility_off,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-              ],
-            ),
+            enabled: false,
           ),
           const SizedBox(height: 40),
-
-          // Update Account Button
           CustomButton(text: 'Update Account', onPressed: _updateAccount),
         ],
       ),
@@ -511,138 +372,8 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-
-          // Recent Password
-          const Text(
-            'Recent Password',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppColors.onBackground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.lock,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Enter Recent Password',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.visibility_off,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // New Password
-          const Text(
-            'New Password',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppColors.onBackground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.lock,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Enter New Password',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.visibility_off,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Confirm Password
-          const Text(
-            'Confirm Password',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppColors.onBackground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.lock,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Type Password Again',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.visibility_off,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 40),
-
-          // Change Password Button
-          CustomButton(text: 'Change Password', onPressed: _changePassword),
+          // ... keep your security fields as before ...
+          // CustomButton(text: 'Change Password', onPressed: _changePassword),
         ],
       ),
     );

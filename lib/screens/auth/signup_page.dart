@@ -141,12 +141,13 @@ class _SignUpPageState extends State<SignUpPage> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => VerificationPage(
-                verificationKey: response.data!.verificationKey,
-                sentVia: response.data!.sentVia,
-                email: _emailController.text.trim(),
-                phone: formattedPhone,
-              ),
+              builder:
+                  (context) => VerificationPage(
+                    verificationKey: response.data!.verificationKey,
+                    sentVia: response.data!.sentVia,
+                    email: _emailController.text.trim(),
+                    phone: formattedPhone,
+                  ),
             ),
           );
         }

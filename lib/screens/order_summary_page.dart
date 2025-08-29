@@ -1,15 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'address_book_page.dart';
 import 'payment_method_page.dart';
+import '../api/order.api.dart';
+import '../providers/cartproviders.dart';
+import '../models/user.model.dart';
+import '../models/order.model.dart'; // Ensure you import the correct OrderItem
+import 'orders_page.dart' hide OrderItem;
+import 'package:provider/provider.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final String paymentMethod;
   final String selectedNumber;
+  final SavedLocation?
+  selectedLocation; // Add this if you want to pass location
 
   const OrderSummaryPage({
     super.key,
     required this.paymentMethod,
     required this.selectedNumber,
+    this.selectedLocation,
   });
 
   @override
@@ -18,6 +29,160 @@ class OrderSummaryPage extends StatefulWidget {
 
 class _OrderSummaryPageState extends State<OrderSummaryPage> {
   final TextEditingController _instructionsController = TextEditingController();
+  bool _isPaymentComplete = false;
+  bool _isPlacingOrder = false;
+  String? _momoReferenceId;
+  String? _orderId;
+  bool _isLoading = false;
+
+  CartProvider get cartProvider => Provider.of<CartProvider>(context);
+  List get cartItems => cartProvider.items;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.paymentMethod == 'MOMO by MTN') {
+      _initiateMomoPayment();
+    }
+  }
+
+Future<void> _initiateMomoPayment() async {
+    setState(() => _isLoading = true);
+
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final token = await cartProvider.getAuthToken();
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Authentication token missing.')),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final formattedPhone =
+        widget.selectedNumber.startsWith('0')
+            ? '250${widget.selectedNumber.substring(1)}'
+            : widget.selectedNumber;
+
+    final response = await OrderApi.initiateMomoPayment(
+      token: token,
+      vendorId: cartProvider.vendor!.id!,
+      items:
+          cartProvider.items
+              .map<OrderItem>(
+                (cartItem) => OrderItem(
+                  itemId: cartItem.item,
+                  quantity: cartItem.quantity,
+                ),
+              )
+              .toList(),
+      lat: widget.selectedLocation?.lat ?? 0,
+      lng: widget.selectedLocation?.lng ?? 0,
+      phone: formattedPhone,
+    );
+
+    setState(() => _isLoading = false);
+
+    if (!response.success) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(response.message ?? 'Error')));
+      return;
+    }
+
+    // Immediately navigate to Orders page after order is created (payment pending)
+    if (response.success && response.data != null) {
+      print("Order created: ${response.data!.id}");
+      print("MoMo Ref: ${response.referenceId}"); // 👈 now works
+      final order = response.data!;
+      setState(() {
+        _orderId = order.id; // save order id
+        _momoReferenceId = response.referenceId; // save MoMo reference
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Order created. Waiting for payment approval.'),
+        ),
+      );
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const OrdersPage()),
+        (route) => false,
+      );
+    }
+
+
+    // Optionally, show a message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Order created. Waiting for payment approval.'),
+      ),
+    );
+
+    // Optionally, you can still poll for payment in the background if you want
+  }
+
+
+
+
+  // Future<void> _pollMomoStatus() async {
+  //   if (_momoReferenceId == null) return;
+
+  //   int attempts = 0;
+  //   const int maxAttempts = 10;
+
+  //   setState(() => _isLoading = true);
+
+  //   while (!_isPaymentComplete && attempts < maxAttempts) {
+  //     attempts++;
+  //     print('⏱ Checking MoMo payment status (Attempt $attempts)...');
+
+  //     final response = await OrderApi.checkMomoPaymentAndCreateOrder(
+  //       referenceId: _momoReferenceId!,
+  //     );
+
+  //     if (response.success && response.data != null) {
+  //       setState(() {
+  //         _isPaymentComplete = true;
+  //         _orderId = response.data!.id;
+  //       });
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(
+  //           content: Text('Payment successful! You can place your order.'),
+  //         ),
+  //       );
+  //       break;
+  //     } else {
+  //       print(
+  //         '⏳ Payment not yet completed. Status: PENDING',
+  //       );
+  //     }
+
+  //     await Future.delayed(const Duration(seconds: 3));
+  //   }
+
+  //   setState(() => _isLoading = false);
+
+  //   if (!_isPaymentComplete) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('Payment not completed. Please try again.'),
+  //       ),
+  //     );
+  //   }
+  // }
+
+
+  Future<void> _placeOrder() async {
+    setState(() => _isPlacingOrder = true);
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const OrdersPage()),
+      (route) => false,
+    );
+  }
 
   @override
   void dispose() {
@@ -73,21 +238,28 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                       content: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Bwiza',
-                            style: TextStyle(
+                          Text(
+                            widget.selectedLocation?.name ?? 'Bwiza',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const Text(
-                            'KG 115 Ave, Kabuga, Rwanda',
-                            style: TextStyle(color: Colors.grey, fontSize: 14),
+                          Text(
+                            widget.selectedLocation?.address ??
+                                'KG 115 Ave, Kabuga, Rwanda',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
                           ),
-                          const Text(
-                            'Contact Phone: 250784107365',
-                            style: TextStyle(color: Colors.grey, fontSize: 14),
+                          Text(
+                            'Contact Phone: ${widget.selectedNumber}',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           const Text(
@@ -185,18 +357,18 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                         color: Colors.green,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Delizia Italiana',
-                            style: TextStyle(
+                            cartProvider.vendor?.name ?? 'Select Restaurant',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          Icon(Icons.keyboard_arrow_down, color: Colors.white),
+                          const Icon(Icons.keyboard_arrow_down, color: Colors.white),
                         ],
                       ),
                     ),
@@ -204,64 +376,87 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                     const SizedBox(height: 16),
 
                     // Order item
-                    Row(
-                      children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2A2A2A),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Center(
-                            child: Text('🍨', style: TextStyle(fontSize: 24)),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Ice cream',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                'Coffee break, Chocolate,',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              'RWF 15,000',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              'Quantity: 1',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+
+
+
+
+ListView.builder(
+  shrinkWrap: true,
+  physics: const NeverScrollableScrollPhysics(),
+  itemCount: cartItems.length,
+  itemBuilder: (context, index) {
+    final cartItem = cartItems[index];
+    final menuItem = cartItem.item;
+    return Row(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A2A2A),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: menuItem.imageUrl != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    menuItem.imageUrl!,
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : const Center(
+                  child: Icon(Icons.fastfood, color: Colors.white, size: 24),
+                ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                menuItem.name ?? '',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                menuItem.description ?? '',
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              'RWF ${menuItem.price ?? 0}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              'Quantity: ${cartItem.quantity}',
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  },
+),
 
                     const SizedBox(height: 30),
                   ],
@@ -274,36 +469,64 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               margin: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.grey,
-                        style: BorderStyle.solid,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.lock, color: Colors.white, size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'PLACE ORDER',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                  GestureDetector(
+                    onTap:
+                        _isPaymentComplete && !_isPlacingOrder
+                            ? _placeOrder
+                            : null,
+                    child: Opacity(
+                      opacity:
+                          _isPaymentComplete && !_isPlacingOrder ? 1.0 : 0.5,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Colors.grey,
+                            style: BorderStyle.solid,
                           ),
-                        ],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (_isPlacingOrder)
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else
+                                const Icon(
+                                  Icons.lock,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _isPaymentComplete
+                                    ? 'PLACE ORDER'
+                                    : (_isLoading
+                                        ? 'Requesting Payment...'
+                                        : 'Waiting for Payment...'),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -463,7 +686,11 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   void _changePaymentMethod() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const PaymentMethodPage()),
+      MaterialPageRoute(
+        builder: (context) => PaymentMethodPage(
+          selectedLocation: widget.selectedLocation ?? SavedLocation(lat: 0, lng: 0, name: '', address: ''),
+        ),
+      ),
     );
   }
 

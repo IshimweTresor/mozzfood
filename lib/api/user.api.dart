@@ -69,6 +69,7 @@ class UserApi {
 
  // Verify registration code
 static Future<ApiResponse<LoginResponse>> verifyCode({
+  
   required String verificationKey,
   required String code,
 }) async {
@@ -77,14 +78,15 @@ static Future<ApiResponse<LoginResponse>> verifyCode({
     print('   - URL: $baseUrl/verify');
     print('   - Verification Key: $verificationKey');
     print('   - Code: $code');
+    print(jsonEncode({'key': verificationKey, 'code': code}));
 
     final response = await http.post(
       Uri.parse('$baseUrl/verify'),
       headers: _getHeaders(),
       body: jsonEncode({
-        'key': verificationKey,  // ✅ Changed from 'verificationKey' to 'key'
-        'code': code,
-      }),
+          'verificationKey': verificationKey, // ✅
+          'code': code,
+        }),
     );
 
     print('🌐 Verify Response:');

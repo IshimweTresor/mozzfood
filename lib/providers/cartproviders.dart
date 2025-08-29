@@ -15,6 +15,13 @@ class CartProvider extends ChangeNotifier {
   List<_CartItem> get items => List.unmodifiable(_items);
   Vendor? get vendor => _vendor;
 
+
+    Future<String?> getAuthToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+
   Future<void> _loadCart() async {
     final prefs = await SharedPreferences.getInstance();
     final cartString = prefs.getString(_cartKey);
