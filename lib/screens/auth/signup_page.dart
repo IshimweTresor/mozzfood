@@ -3,6 +3,7 @@ import '../../api/user.api.dart';
 import '../../utils/colors.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import 'signup_otp_verification_page.dart'; // ✅ Import the new OTP page
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -146,14 +147,18 @@ class _SignUpPageState extends State<SignUpPage> {
 
         // Check if verification is required
         if (response.data!.requiresVerification) {
-          // Navigate to verification page (you'll need to create this page for OTP verification)
-          _showSuccessMessage(
-            'Please check your email for the verification OTP',
-          );
-          // TODO: Navigate to OTP verification page when ready
-          // For now, navigate to login
+          // Navigate to OTP verification page
           if (mounted) {
-            Navigator.pop(context); // Go back to login page
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (context) => SignupOtpVerificationPage(
+                      email: _emailController.text.trim(),
+                      phoneNumber: formattedPhone,
+                    ),
+              ),
+            );
           }
         } else {
           // Account created and verified, go to login

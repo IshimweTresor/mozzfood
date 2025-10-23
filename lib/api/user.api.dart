@@ -43,6 +43,11 @@ class UserApi {
       print('🚀 Registering user...');
       print('📧 Email: $email');
       print('📱 Phone: $phoneNumber');
+      print('👤 Name: $fullName');
+      print('🌍 Location: $location');
+      print('🔗 Endpoint: http://167.235.155.3:8085/api/customers/register');
+      print('🕒 Starting registration POST request...');
+      final startTime = DateTime.now();
 
       final response = await http.post(
         Uri.parse('http://167.235.155.3:8085/api/customers/register'),
@@ -57,6 +62,11 @@ class UserApi {
           'roles': roles,
         }),
       );
+      final endTime = DateTime.now();
+      final duration = endTime.difference(startTime);
+      print(
+        '🕒 Registration request completed in ${duration.inMilliseconds} ms',
+      );
 
       print('🌐 Registration Response:');
       print('   - Status Code: ${response.statusCode}');
@@ -65,12 +75,14 @@ class UserApi {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ Registration successful!');
         return ApiResponse<RegisterResponse>(
           success: true,
           message: data['message'] ?? 'Registration successful',
           data: RegisterResponse.fromJson(data),
         );
       } else {
+        print('❌ Registration failed.');
         return ApiResponse<RegisterResponse>(
           success: false,
           message: data['message'] ?? 'Registration failed',
@@ -79,6 +91,7 @@ class UserApi {
       }
     } catch (e) {
       print('❌ Registration Error: $e');
+      print('❌ Registration request failed due to network or server issue.');
       return ApiResponse<RegisterResponse>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -93,18 +106,15 @@ class UserApi {
   }) async {
     try {
       print('🌐 Verify Code API Call:');
-      print('   - URL: $baseUrl/verify');
-      print('   - Verification Key: $verificationKey');
-      print('   - Code: $code');
-      print(jsonEncode({'key': verificationKey, 'code': code}));
+      print('   - URL: $baseUrl/verify-otp');
+      print('   - Email: $verificationKey');
+      print('   - OTP: $code');
+      print(jsonEncode({'email': verificationKey, 'otp': code}));
 
       final response = await http.post(
-        Uri.parse('$baseUrl/verify'),
+        Uri.parse('$baseUrl/verify-otp'),
         headers: _getHeaders(),
-        body: jsonEncode({
-          'verificationKey': verificationKey, // ✅
-          'code': code,
-        }),
+        body: jsonEncode({'email': verificationKey, 'otp': code}),
       );
 
       print('🌐 Verify Response:');
@@ -142,23 +152,18 @@ class UserApi {
     String? method, // 'phone' or 'email'
   }) async {
     try {
-      print('🌐 Resend Code API Call:');
-      print('   - URL: $baseUrl/resend-code');
+      print('🌐 Resend OTP API Call:');
+      print('   - URL: $baseUrl/resend-otp');
       print('   - Verification Key: $verificationKey');
       print('   - Method: $method');
 
-      final body = {
-        'key': verificationKey, // ✅ Changed from 'verificationKey' to 'key'
-      };
-      if (method != null) {
-        body['method'] = method;
-      }
+      // Use email as path parameter in endpoint
+      final url = '$baseUrl/resend-otp/$verificationKey';
+      print('🌐 Resend OTP API Call:');
+      print('   - URL: $url');
+      print('   - Method: $method');
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/resend-code'),
-        headers: _getHeaders(),
-        body: jsonEncode(body),
-      );
+      final response = await http.post(Uri.parse(url), headers: _getHeaders());
 
       print('🌐 Resend Response:');
       print('   - Status: ${response.statusCode}');
