@@ -31,31 +31,43 @@ class UserApi {
 
   // Register user and send verification code
   static Future<ApiResponse<RegisterResponse>> registerUser({
-    required String name,
-    required String phone,
+    required String fullName,
+    required String location,
+    required String phoneNumber,
     required String email,
     required String password,
-    String role = 'customer',
+    required String confirmPassword,
+    String roles = 'CUSTOMER',
   }) async {
     try {
+      print('🚀 Registering user...');
+      print('📧 Email: $email');
+      print('📱 Phone: $phoneNumber');
+
       final response = await http.post(
-        Uri.parse('$baseUrl/register'),
+        Uri.parse('http://167.235.155.3:8085/api/customers/register'),
         headers: _getHeaders(),
         body: jsonEncode({
-          'name': name,
-          'phone': phone,
+          'fullNames': fullName,
+          'location': location,
+          'phoneNumber': phoneNumber,
           'email': email,
           'password': password,
-          'role': role,
+          'confirmPassword': confirmPassword,
+          'roles': roles,
         }),
       );
 
+      print('🌐 Registration Response:');
+      print('   - Status Code: ${response.statusCode}');
+      print('   - Body: ${response.body}');
+
       final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return ApiResponse<RegisterResponse>(
           success: true,
-          message: data['message'],
+          message: data['message'] ?? 'Registration successful',
           data: RegisterResponse.fromJson(data),
         );
       } else {
@@ -66,6 +78,7 @@ class UserApi {
         );
       }
     } catch (e) {
+      print('❌ Registration Error: $e');
       return ApiResponse<RegisterResponse>(
         success: false,
         message: 'Network error: ${e.toString()}',

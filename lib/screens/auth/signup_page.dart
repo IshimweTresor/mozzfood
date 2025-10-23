@@ -3,7 +3,6 @@ import '../../api/user.api.dart';
 import '../../utils/colors.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
-import 'verification_page.dart'; // You'll need to create this
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -18,8 +17,9 @@ class _SignUpPageState extends State<SignUpPage> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController(); // ✅ Added password field
-  final _confirmPasswordController = TextEditingController(); // ✅ Added confirm password
-  
+  final _confirmPasswordController =
+      TextEditingController(); // ✅ Added confirm password
+
   String _selectedCountry = 'Rwanda'; // ✅ Default to Rwanda
   String _selectedCountryCode = '+250';
   bool _agreeToTerms = false;
@@ -93,14 +93,14 @@ class _SignUpPageState extends State<SignUpPage> {
   String _formatPhoneNumber(String phone) {
     // Remove any existing country code and formatting
     String cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
-    
+
     // Remove country code if it exists
     if (_selectedCountry == 'Rwanda' && cleanPhone.startsWith('250')) {
       cleanPhone = cleanPhone.substring(3);
     } else if (_selectedCountry == 'Ukraine' && cleanPhone.startsWith('380')) {
       cleanPhone = cleanPhone.substring(3);
     }
-    
+
     // Add the country code
     return '${_selectedCountryCode.replaceAll('+', '')}$cleanPhone';
   }
@@ -119,37 +119,47 @@ class _SignUpPageState extends State<SignUpPage> {
 
     try {
       final formattedPhone = _formatPhoneNumber(_phoneController.text.trim());
-      
+
       print('🚀 Attempting registration...');
       print('📧 Email: ${_emailController.text.trim()}');
       print('📱 Phone: $formattedPhone');
       print('👤 Name: ${_nameController.text.trim()}');
 
       final response = await UserApi.registerUser(
-        name: _nameController.text.trim(),
-        phone: formattedPhone,
+        fullName: _nameController.text.trim(),
+        location: _selectedCountry, // Use selected country as location
+        phoneNumber: formattedPhone,
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
-        role: 'customer',
+        confirmPassword: _confirmPasswordController.text.trim(),
+        roles: 'CUSTOMER',
       );
 
       if (response.success && response.data != null) {
-        _showSuccessMessage('Account created successfully! Please verify your account.');
-        
-        // Navigate to verification page
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (context) => VerificationPage(
-                    verificationKey: response.data!.verificationKey,
-                    sentVia: response.data!.sentVia,
-                    email: _emailController.text.trim(),
-                    phone: formattedPhone,
-                  ),
-            ),
+        print('✅ Registration successful!');
+        print(
+          '   - Requires Verification: ${response.data!.requiresVerification}',
+        );
+        print('   - Customer ID: ${response.data!.data?.customerId}');
+
+        _showSuccessMessage(response.message);
+
+        // Check if verification is required
+        if (response.data!.requiresVerification) {
+          // Navigate to verification page (you'll need to create this page for OTP verification)
+          _showSuccessMessage(
+            'Please check your email for the verification OTP',
           );
+          // TODO: Navigate to OTP verification page when ready
+          // For now, navigate to login
+          if (mounted) {
+            Navigator.pop(context); // Go back to login page
+          }
+        } else {
+          // Account created and verified, go to login
+          if (mounted) {
+            Navigator.pop(context);
+          }
         }
       } else {
         _showErrorMessage(response.message);
@@ -166,19 +176,13 @@ class _SignUpPageState extends State<SignUpPage> {
 
   void _showErrorMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
     );
   }
 
   void _showSuccessMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.primary,
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.primary),
     );
   }
 
@@ -459,49 +463,50 @@ class _SignUpPageState extends State<SignUpPage> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(2),
                             ),
-                            child: _selectedCountry == 'Rwanda'
-                                ? Stack(
-                                    children: [
-                                      Container(
-                                        width: 20,
-                                        height: 5,
-                                        color: const Color(0xFF00A1DE),
-                                      ),
-                                      Positioned(
-                                        top: 5,
-                                        child: Container(
+                            child:
+                                _selectedCountry == 'Rwanda'
+                                    ? Stack(
+                                      children: [
+                                        Container(
                                           width: 20,
                                           height: 5,
-                                          color: const Color(0xFFFAD201),
+                                          color: const Color(0xFF00A1DE),
                                         ),
-                                      ),
-                                      Positioned(
-                                        bottom: 0,
-                                        child: Container(
-                                          width: 20,
-                                          height: 5,
-                                          color: const Color(0xFF00A651),
+                                        Positioned(
+                                          top: 5,
+                                          child: Container(
+                                            width: 20,
+                                            height: 5,
+                                            color: const Color(0xFFFAD201),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  )
-                                : Stack(
-                                    children: [
-                                      Container(
-                                        width: 20,
-                                        height: 7.5,
-                                        color: AppColors.ukraineBlue,
-                                      ),
-                                      Positioned(
-                                        bottom: 0,
-                                        child: Container(
+                                        Positioned(
+                                          bottom: 0,
+                                          child: Container(
+                                            width: 20,
+                                            height: 5,
+                                            color: const Color(0xFF00A651),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                    : Stack(
+                                      children: [
+                                        Container(
                                           width: 20,
                                           height: 7.5,
-                                          color: AppColors.ukraineYellow,
+                                          color: AppColors.ukraineBlue,
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                        Positioned(
+                                          bottom: 0,
+                                          child: Container(
+                                            width: 20,
+                                            height: 7.5,
+                                            color: AppColors.ukraineYellow,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                           ),
                           const SizedBox(width: 6),
                           Text(

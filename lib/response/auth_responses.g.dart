@@ -10,18 +10,53 @@ RegisterResponse _$RegisterResponseFromJson(Map<String, dynamic> json) =>
     RegisterResponse(
       success: json['success'] as bool,
       message: json['message'] as String,
-      verificationKey: json['verificationKey'] as String,
-      sentVia: json['sentVia'] as String,
-      expiresIn: (json['expiresIn'] as num).toInt(),
+      requiresVerification: json['requiresVerification'] as bool,
+      data:
+          json['data'] == null
+              ? null
+              : RegisteredUserData.fromJson(
+                json['data'] as Map<String, dynamic>,
+              ),
     );
 
 Map<String, dynamic> _$RegisterResponseToJson(RegisterResponse instance) =>
     <String, dynamic>{
       'success': instance.success,
       'message': instance.message,
-      'verificationKey': instance.verificationKey,
-      'sentVia': instance.sentVia,
-      'expiresIn': instance.expiresIn,
+      'requiresVerification': instance.requiresVerification,
+      'data': instance.data,
+    };
+
+RegisteredUserData _$RegisteredUserDataFromJson(Map<String, dynamic> json) =>
+    RegisteredUserData(
+      customerId: (json['customerId'] as num).toInt(),
+      fullNames: json['fullNames'] as String,
+      location: json['location'] as String,
+      phoneNumber: json['phoneNumber'] as String,
+      email: json['email'] as String,
+      roles: json['roles'] as String,
+      emailVerified: json['emailVerified'] as bool,
+      phoneVerified: json['phoneVerified'] as bool,
+      lastLogin: json['lastLogin'] as String?,
+      createdAt: json['createdAt'] as String,
+      updatedAt: json['updatedAt'] as String,
+      active: json['active'] as bool,
+    );
+
+Map<String, dynamic> _$RegisteredUserDataToJson(RegisteredUserData instance) =>
+    <String, dynamic>{
+      'customerId': instance.customerId,
+      'fullNames': instance.fullNames,
+      'location': instance.location,
+      'phoneNumber': instance.phoneNumber,
+      'email': instance.email,
+      'roles': instance.roles,
+      'emailVerified': instance.emailVerified,
+      'phoneVerified': instance.phoneVerified,
+      'lastLogin': instance.lastLogin,
+      'createdAt': instance.createdAt,
+      'updatedAt': instance.updatedAt,
+      'active': instance.active,
     };
 
 ResendCodeResponse _$ResendCodeResponseFromJson(Map<String, dynamic> json) =>

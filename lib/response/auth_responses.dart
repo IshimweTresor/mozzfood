@@ -1,5 +1,4 @@
 import 'package:json_annotation/json_annotation.dart';
-import '../models/user.model.dart';
 
 part 'auth_responses.g.dart';
 
@@ -7,21 +6,54 @@ part 'auth_responses.g.dart';
 class RegisterResponse {
   final bool success;
   final String message;
-  final String verificationKey;
-  final String sentVia;
-  final int expiresIn;
+  final bool requiresVerification;
+  final RegisteredUserData? data;
 
   RegisterResponse({
     required this.success,
     required this.message,
-    required this.verificationKey,
-    required this.sentVia,
-    required this.expiresIn,
+    required this.requiresVerification,
+    this.data,
   });
 
   factory RegisterResponse.fromJson(Map<String, dynamic> json) =>
       _$RegisterResponseFromJson(json);
   Map<String, dynamic> toJson() => _$RegisterResponseToJson(this);
+}
+
+@JsonSerializable()
+class RegisteredUserData {
+  final int customerId;
+  final String fullNames;
+  final String location;
+  final String phoneNumber;
+  final String email;
+  final String roles;
+  final bool emailVerified;
+  final bool phoneVerified;
+  final String? lastLogin;
+  final String createdAt;
+  final String updatedAt;
+  final bool active;
+
+  RegisteredUserData({
+    required this.customerId,
+    required this.fullNames,
+    required this.location,
+    required this.phoneNumber,
+    required this.email,
+    required this.roles,
+    required this.emailVerified,
+    required this.phoneVerified,
+    this.lastLogin,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.active,
+  });
+
+  factory RegisteredUserData.fromJson(Map<String, dynamic> json) =>
+      _$RegisteredUserDataFromJson(json);
+  Map<String, dynamic> toJson() => _$RegisteredUserDataToJson(this);
 }
 
 // LoginResponse moved to user.model.dart to match new backend structure
