@@ -113,7 +113,7 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
 
       if (response.success && response.data != null) {
         setState(() {
-          _preferences = response.data;
+          _preferences = response.data as LocationPreferences?;
         });
         _showSuccessMessage('Preferences updated successfully');
       } else {

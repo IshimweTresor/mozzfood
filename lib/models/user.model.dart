@@ -124,3 +124,31 @@ class RoleHistory {
 
   Map<String, dynamic> toJson() => _$RoleHistoryToJson(this);
 }
+
+@JsonSerializable()
+class LoginResponse {
+  final String token;
+  final String tokenType;
+  final int id;
+  final String email;
+  final String role;
+  final String fullName;
+  final int? restaurantId;
+  final String? restaurantName;
+
+   LoginResponse({
+    required this.token,
+    required this.tokenType,
+    required this.id,
+    required this.email,
+    required this.role,
+    required this.fullName,
+    this.restaurantId,
+    this.restaurantName,
+  });
+
+  factory LoginResponse.fromJson(Map<String, dynamic> json) =>
+      _$LoginResponseFromJson(json);
+
+  Map<String, dynamic> toJson() => _$LoginResponseToJson(this);
+}

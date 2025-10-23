@@ -19,27 +19,12 @@ class RegisterResponse {
     required this.expiresIn,
   });
 
-  factory RegisterResponse.fromJson(Map<String, dynamic> json) => _$RegisterResponseFromJson(json);
+  factory RegisterResponse.fromJson(Map<String, dynamic> json) =>
+      _$RegisterResponseFromJson(json);
   Map<String, dynamic> toJson() => _$RegisterResponseToJson(this);
 }
 
-@JsonSerializable()
-class LoginResponse {
-  final bool success;
-  final String message;
-  final User user;
-  final String token;
-
-  LoginResponse({
-    required this.success,
-    required this.message,
-    required this.user,
-    required this.token,
-  });
-
-  factory LoginResponse.fromJson(Map<String, dynamic> json) => _$LoginResponseFromJson(json);
-  Map<String, dynamic> toJson() => _$LoginResponseToJson(this);
-}
+// LoginResponse moved to user.model.dart to match new backend structure
 
 @JsonSerializable()
 class ResendCodeResponse {
@@ -55,7 +40,8 @@ class ResendCodeResponse {
     required this.expiresIn,
   });
 
-  factory ResendCodeResponse.fromJson(Map<String, dynamic> json) => _$ResendCodeResponseFromJson(json);
+  factory ResendCodeResponse.fromJson(Map<String, dynamic> json) =>
+      _$ResendCodeResponseFromJson(json);
   Map<String, dynamic> toJson() => _$ResendCodeResponseToJson(this);
 }
 
@@ -75,7 +61,8 @@ class ForgotPasswordResponse {
     required this.expiresIn,
   });
 
-  factory ForgotPasswordResponse.fromJson(Map<String, dynamic> json) => _$ForgotPasswordResponseFromJson(json);
+  factory ForgotPasswordResponse.fromJson(Map<String, dynamic> json) =>
+      _$ForgotPasswordResponseFromJson(json);
   Map<String, dynamic> toJson() => _$ForgotPasswordResponseToJson(this);
 }
 
@@ -93,6 +80,7 @@ class VerifyResetCodeResponse {
     required this.expiresIn,
   });
 
-  factory VerifyResetCodeResponse.fromJson(Map<String, dynamic> json) => _$VerifyResetCodeResponseFromJson(json);
+  factory VerifyResetCodeResponse.fromJson(Map<String, dynamic> json) =>
+      _$VerifyResetCodeResponseFromJson(json);
   Map<String, dynamic> toJson() => _$VerifyResetCodeResponseToJson(this);
 }

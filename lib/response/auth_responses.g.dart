@@ -24,22 +24,6 @@ Map<String, dynamic> _$RegisterResponseToJson(RegisterResponse instance) =>
       'expiresIn': instance.expiresIn,
     };
 
-LoginResponse _$LoginResponseFromJson(Map<String, dynamic> json) =>
-    LoginResponse(
-      success: json['success'] as bool,
-      message: json['message'] as String,
-      user: User.fromJson(json['user'] as Map<String, dynamic>),
-      token: json['token'] as String,
-    );
-
-Map<String, dynamic> _$LoginResponseToJson(LoginResponse instance) =>
-    <String, dynamic>{
-      'success': instance.success,
-      'message': instance.message,
-      'user': instance.user,
-      'token': instance.token,
-    };
-
 ResendCodeResponse _$ResendCodeResponseFromJson(Map<String, dynamic> json) =>
     ResendCodeResponse(
       success: json['success'] as bool,

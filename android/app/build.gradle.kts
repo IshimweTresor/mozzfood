@@ -8,7 +8,9 @@ plugins {
 android {
     namespace = "com.example.vuba"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Pin NDK to version required by shared_preferences_android plugin
+    // This ensures Gradle will use the right side-by-side NDK
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../api/user.api.dart';
-import '../../response/auth_responses.dart';
+import '../../models/user.model.dart'
+    show LoginResponse; // ✅ Import LoginResponse
 import '../../utils/colors.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -68,16 +69,14 @@ class _LoginPageState extends State<LoginPage> {
       // Save user token
       await prefs.setString('auth_token', loginResponse.token);
 
-      // Save user data
-      await prefs.setString('user_id', loginResponse.user.id ?? '');
-      await prefs.setString('user_name', loginResponse.user.name);
-      await prefs.setString('user_email', loginResponse.user.email);
-      await prefs.setString('user_phone', loginResponse.user.phone);
-      await prefs.setString('user_role', loginResponse.user.role);
-      await prefs.setBool(
-        'user_verified',
-        loginResponse.user.isVerified ?? false,
-      );
+      // Save user data (new backend structure)
+      await prefs.setInt('user_id', loginResponse.id);
+      await prefs.setString('user_name', loginResponse.fullName);
+      await prefs.setString('user_email', loginResponse.email);
+      await prefs.setString('user_role', loginResponse.role);
+
+      // New backend doesn't have phone or isVerified in login response
+      // These can be fetched separately if needed
 
       // Save login status
       await prefs.setBool('is_logged_in', true);
@@ -130,7 +129,7 @@ class _LoginPageState extends State<LoginPage> {
       print('📧 Identifier: ${_identifierController.text.trim()}');
 
       final response = await UserApi.loginUser(
-        identifier: _identifierController.text.trim(),
+        email: _identifierController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
@@ -139,12 +138,10 @@ class _LoginPageState extends State<LoginPage> {
 
       if (response.success && response.data != null) {
         print('🔍 User Data Debug:');
-        print('   - User ID: ${response.data!.user.id}');
-        print('   - User Name: ${response.data!.user.name}');
-        print('   - User Email: ${response.data!.user.email}');
-        print('   - User Phone: ${response.data!.user.phone}');
-        print('   - User Role: ${response.data!.user.role}');
-        print('   - Is Verified: ${response.data!.user.isVerified}');
+        print('   - User ID: ${response.data!.id}');
+        print('   - User Name: ${response.data!.fullName}');
+        print('   - User Email: ${response.data!.email}');
+        print('   - User Role: ${response.data!.role}');
         print('   - Token: ${response.data!.token.substring(0, 20)}...');
 
         // Login successful
@@ -156,21 +153,10 @@ class _LoginPageState extends State<LoginPage> {
         // Show success message
         _showSuccessSnackBar(response.message);
 
-        // Check if user is verified - Handle nullable field
-        final isVerified =
-            response.data!.user.isVerified ?? false; // ✅ Handle null case
-        print('🔍 Verification Check: $isVerified');
+        // New backend doesn't return isVerified in login response
+        // Skip verification check or fetch user profile separately if needed
+        print('✅ Proceeding to main app');
 
-        if (!isVerified) {
-          print('❌ User is NOT verified - showing dialog');
-          _showErrorDialog(
-            'Account Not Verified',
-            'Please verify your account first. Check your email or SMS for the verification code.',
-          );
-          return;
-        }
-
-        print('✅ User IS verified - proceeding to main app');
         // Navigate to location selection page or main app
         if (mounted) {
           Navigator.pushReplacement(

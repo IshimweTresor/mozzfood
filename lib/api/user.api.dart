@@ -3,23 +3,29 @@ import 'package:http/http.dart' as http;
 import 'package:vuba/response/api_response.dart';
 import 'package:vuba/response/auth_responses.dart';
 import 'package:vuba/response/user_responses.dart';
-import '../models/user.model.dart';
+import '../models/user.model.dart' as user_model;
+// Import LoginResponse from user.model.dart
+import '../models/user.model.dart' show LoginResponse;
 import 'package:vuba/response/user_location_responses.dart';
 
-
 class UserApi {
-  static const String baseUrl = 'https://food-delivery-backend-hazel.vercel.app/api/users';
-  
+  // For Android Emulator, use 10.0.2.2 instead of localhost
+  // For real device on same network, use your computer's local IP (e.g., 192.168.x.x)
+  // For remote server, use the actual server IP/domain
+  static const String baseUrl = 'http://167.235.155.3:8085/api/auth';
+
+  // Alternative: Use this if backend is on your local machine
+  // static const String baseUrl = 'http://10.0.2.2:8085/api/auth'; // For Android Emulator
+  // static const String baseUrl = 'http://localhost:8085/api/auth'; // For Web/Desktop
+
   // Helper method to get headers
   static Map<String, String> _getHeaders({String? token}) {
-    final headers = {
-      'Content-Type': 'application/json',
-    };
-    
+    final headers = {'Content-Type': 'application/json'};
+
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
     }
-    
+
     return headers;
   }
 
@@ -67,170 +73,160 @@ class UserApi {
     }
   }
 
- // Verify registration code
-static Future<ApiResponse<LoginResponse>> verifyCode({
-  
-  required String verificationKey,
-  required String code,
-}) async {
-  try {
-    print('🌐 Verify Code API Call:');
-    print('   - URL: $baseUrl/verify');
-    print('   - Verification Key: $verificationKey');
-    print('   - Code: $code');
-    print(jsonEncode({'key': verificationKey, 'code': code}));
+  // Verify registration code
+  static Future<ApiResponse<LoginResponse>> verifyCode({
+    required String verificationKey,
+    required String code,
+  }) async {
+    try {
+      print('🌐 Verify Code API Call:');
+      print('   - URL: $baseUrl/verify');
+      print('   - Verification Key: $verificationKey');
+      print('   - Code: $code');
+      print(jsonEncode({'key': verificationKey, 'code': code}));
 
-    final response = await http.post(
-      Uri.parse('$baseUrl/verify'),
-      headers: _getHeaders(),
-      body: jsonEncode({
+      final response = await http.post(
+        Uri.parse('$baseUrl/verify'),
+        headers: _getHeaders(),
+        body: jsonEncode({
           'verificationKey': verificationKey, // ✅
           'code': code,
         }),
-    );
+      );
 
-    print('🌐 Verify Response:');
-    print('   - Status: ${response.statusCode}');
-    print('   - Body: ${response.body}');
+      print('🌐 Verify Response:');
+      print('   - Status: ${response.statusCode}');
+      print('   - Body: ${response.body}');
 
-    final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body);
 
-    if (response.statusCode == 201 || response.statusCode == 200) { // ✅ Accept both 200 and 201
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        // ✅ Accept both 200 and 201
+        return ApiResponse<LoginResponse>(
+          success: true,
+          message: data['message'],
+          data: LoginResponse.fromJson(data),
+        );
+      } else {
+        return ApiResponse<LoginResponse>(
+          success: false,
+          message: data['message'] ?? 'Verification failed',
+          error: data['attemptsLeft']?.toString() ?? data['error']?.toString(),
+        );
+      }
+    } catch (e) {
+      print('❌ Verify Code Error: $e');
+      return ApiResponse<LoginResponse>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+  // Resend verification code
+  static Future<ApiResponse<ResendCodeResponse>> resendCode({
+    required String verificationKey,
+    String? method, // 'phone' or 'email'
+  }) async {
+    try {
+      print('🌐 Resend Code API Call:');
+      print('   - URL: $baseUrl/resend-code');
+      print('   - Verification Key: $verificationKey');
+      print('   - Method: $method');
+
+      final body = {
+        'key': verificationKey, // ✅ Changed from 'verificationKey' to 'key'
+      };
+      if (method != null) {
+        body['method'] = method;
+      }
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/resend-code'),
+        headers: _getHeaders(),
+        body: jsonEncode(body),
+      );
+
+      print('🌐 Resend Response:');
+      print('   - Status: ${response.statusCode}');
+      print('   - Body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ApiResponse<ResendCodeResponse>(
+          success: true,
+          message: data['message'],
+          data: ResendCodeResponse.fromJson(data),
+        );
+      } else {
+        return ApiResponse<ResendCodeResponse>(
+          success: false,
+          message: data['message'] ?? 'Failed to resend code',
+        );
+      }
+    } catch (e) {
+      print('❌ Resend Code Error: $e');
+      return ApiResponse<ResendCodeResponse>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+  // Login user
+  static Future<ApiResponse<LoginResponse>> loginUser({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/login'),
+        headers: _getHeaders(),
+        body: jsonEncode({'email': email, 'password': password}),
+      );
+
+      print('🌐 Raw API Response:');
+      print('   - Status Code: ${response.statusCode}');
+      print('   - Body: ${response.body}');
+
+      if (response.statusCode != 200) {
+        String errorMessage = 'Login failed';
+        print('❌ Login failed. Status: ${response.statusCode}');
+        try {
+          final errorData = jsonDecode(response.body);
+          print('❌ Error response JSON: $errorData');
+          errorMessage = errorData['message'] ?? errorMessage;
+        } catch (e) {
+          print('❌ Error response not JSON: ${response.body}');
+        }
+        return ApiResponse<LoginResponse>(
+          success: false,
+          message: errorMessage,
+        );
+      }
+
+      final data = jsonDecode(response.body);
+      print('✅ Login success. Response JSON: $data');
+      // You may need to update this part based on the actual response structure
       return ApiResponse<LoginResponse>(
         success: true,
-        message: data['message'],
+        message: data['message'] ?? 'Login successful',
         data: LoginResponse.fromJson(data),
       );
-    } else {
+    } catch (e) {
+      print('❌ API Error: $e');
       return ApiResponse<LoginResponse>(
         success: false,
-        message: data['message'] ?? 'Verification failed',
-        error: data['attemptsLeft']?.toString() ?? data['error']?.toString(),
+        message: 'Network error: Unable to connect to server',
       );
     }
-  } catch (e) {
-    print('❌ Verify Code Error: $e');
-    return ApiResponse<LoginResponse>(
-      success: false,
-      message: 'Network error: ${e.toString()}',
-    );
   }
-}
-
-// Resend verification code
-static Future<ApiResponse<ResendCodeResponse>> resendCode({
-  required String verificationKey,
-  String? method, // 'phone' or 'email'
-}) async {
-  try {
-    print('🌐 Resend Code API Call:');
-    print('   - URL: $baseUrl/resend-code');
-    print('   - Verification Key: $verificationKey');
-    print('   - Method: $method');
-
-    final body = {
-      'key': verificationKey, // ✅ Changed from 'verificationKey' to 'key'
-    };
-    if (method != null) {
-      body['method'] = method;
-    }
-
-    final response = await http.post(
-      Uri.parse('$baseUrl/resend-code'),
-      headers: _getHeaders(),
-      body: jsonEncode(body),
-    );
-
-    print('🌐 Resend Response:');
-    print('   - Status: ${response.statusCode}');
-    print('   - Body: ${response.body}');
-
-    final data = jsonDecode(response.body);
-
-    if (response.statusCode == 200) {
-      return ApiResponse<ResendCodeResponse>(
-        success: true,
-        message: data['message'],
-        data: ResendCodeResponse.fromJson(data),
-      );
-    } else {
-      return ApiResponse<ResendCodeResponse>(
-        success: false,
-        message: data['message'] ?? 'Failed to resend code',
-      );
-    }
-  } catch (e) {
-    print('❌ Resend Code Error: $e');
-    return ApiResponse<ResendCodeResponse>(
-      success: false,
-      message: 'Network error: ${e.toString()}',
-    );
-  }
-}
-
-// Login user
-static Future<ApiResponse<LoginResponse>> loginUser({
-  required String identifier, // email or phone
-  required String password,
-}) async {
-  try {
-    final response = await http.post(
-      Uri.parse('$baseUrl/login'),
-      headers: _getHeaders(),
-      body: jsonEncode({
-        'identifier': identifier,
-        'password': password,
-      }),
-    );
-
-    print('🌐 Raw API Response:');
-    print('   - Status Code: ${response.statusCode}');
-    print('   - Body: ${response.body}');
-
-    // ✅ Better error handling for non-JSON responses
-    if (response.statusCode != 200) {
-      String errorMessage;
-      try {
-        final errorData = jsonDecode(response.body);
-        errorMessage = errorData['message'] ?? 'Login failed';
-      } catch (e) {
-        // If response is not JSON (like your server error), handle it
-        errorMessage = response.statusCode == 500 
-            ? 'Server error. Please try again later.' 
-            : 'Login failed. Please check your credentials.';
-      }
-      
-      return ApiResponse<LoginResponse>(
-        success: false,
-        message: errorMessage,
-      );
-    }
-
-    final data = jsonDecode(response.body);
-
-    // Add specific logging for the user verification status
-    print('🔍 Raw User Data from API:');
-    print('   - Full user object: ${data['user']}');
-    print('   - isVerified: ${data['user']?['isVerified']}');
-    print('   - isVerified Type: ${data['user']?['isVerified'].runtimeType}');
-    
-    return ApiResponse<LoginResponse>(
-      success: true,
-      message: data['message'],
-      data: LoginResponse.fromJson(data),
-    );
-
-  } catch (e) {
-    print('❌ API Error: $e');
-    return ApiResponse<LoginResponse>(
-      success: false,
-      message: 'Network error: Unable to connect to server',
-    );
-  }
-}
 
   // Get user profile
-  static Future<ApiResponse<User>> getUserProfile(String token) async {
+  static Future<ApiResponse<user_model.User>> getUserProfile(
+    String token,
+  ) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/profile'),
@@ -240,19 +236,19 @@ static Future<ApiResponse<LoginResponse>> loginUser({
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return ApiResponse<User>(
+        return ApiResponse<user_model.User>(
           success: true,
           message: 'Profile retrieved successfully',
-          data: User.fromJson(data['user']),
+          data: user_model.User.fromJson(data['user']),
         );
       } else {
-        return ApiResponse<User>(
+        return ApiResponse<user_model.User>(
           success: false,
           message: data['message'] ?? 'Failed to get profile',
         );
       }
     } catch (e) {
-      return ApiResponse<User>(
+      return ApiResponse<user_model.User>(
         success: false,
         message: 'Network error: ${e.toString()}',
       );
@@ -260,10 +256,10 @@ static Future<ApiResponse<LoginResponse>> loginUser({
   }
 
   // Update user profile
-  static Future<ApiResponse<User>> updateUserProfile({
+  static Future<ApiResponse<user_model.User>> updateUserProfile({
     required String token,
     String? name,
-    Location? location,
+    user_model.Location? location,
   }) async {
     try {
       final body = <String, dynamic>{};
@@ -279,19 +275,19 @@ static Future<ApiResponse<LoginResponse>> loginUser({
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return ApiResponse<User>(
+        return ApiResponse<user_model.User>(
           success: true,
           message: data['message'],
-          data: User.fromJson(data['user']),
+          data: user_model.User.fromJson(data['user']),
         );
       } else {
-        return ApiResponse<User>(
+        return ApiResponse<user_model.User>(
           success: false,
           message: data['message'] ?? 'Failed to update profile',
         );
       }
     } catch (e) {
-      return ApiResponse<User>(
+      return ApiResponse<user_model.User>(
         success: false,
         message: 'Network error: ${e.toString()}',
       );
@@ -323,10 +319,7 @@ static Future<ApiResponse<LoginResponse>> loginUser({
 
       final uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);
 
-      final response = await http.get(
-        uri,
-        headers: _getHeaders(token: token),
-      );
+      final response = await http.get(uri, headers: _getHeaders(token: token));
 
       final data = jsonDecode(response.body);
 
@@ -358,9 +351,7 @@ static Future<ApiResponse<LoginResponse>> loginUser({
       final response = await http.post(
         Uri.parse('$baseUrl/forgot-password'),
         headers: _getHeaders(),
-        body: jsonEncode({
-          'identifier': identifier,
-        }),
+        body: jsonEncode({'identifier': identifier}),
       );
 
       final data = jsonDecode(response.body);
@@ -394,10 +385,7 @@ static Future<ApiResponse<LoginResponse>> loginUser({
       final response = await http.post(
         Uri.parse('$baseUrl/verify-reset-code'),
         headers: _getHeaders(),
-        body: jsonEncode({
-          'resetKey': resetKey,
-          'code': code,
-        }),
+        body: jsonEncode({'resetKey': resetKey, 'code': code}),
       );
 
       final data = jsonDecode(response.body);
@@ -424,7 +412,7 @@ static Future<ApiResponse<LoginResponse>> loginUser({
   }
 
   // Reset password
-  static Future<ApiResponse<User>> resetPassword({
+  static Future<ApiResponse<user_model.User>> resetPassword({
     required String resetKey,
     required String newPassword,
     required String confirmPassword,
@@ -444,19 +432,19 @@ static Future<ApiResponse<LoginResponse>> loginUser({
       print('ResetKey used: ${resetKey}');
 
       if (response.statusCode == 200) {
-        return ApiResponse<User>(
+        return ApiResponse<user_model.User>(
           success: true,
           message: data['message'],
-          data: User.fromJson(data['user']),
+          data: user_model.User.fromJson(data['user']),
         );
       } else {
-        return ApiResponse<User>(
+        return ApiResponse<user_model.User>(
           success: false,
           message: data['message'] ?? 'Failed to reset password',
         );
       }
     } catch (e) {
-      return ApiResponse<User>(
+      return ApiResponse<user_model.User>(
         success: false,
         message: 'Network error: ${e.toString()}',
       );
@@ -464,17 +452,14 @@ static Future<ApiResponse<LoginResponse>> loginUser({
   }
 
   // Update user role (Admin only)
-  static Future<ApiResponse<User>> updateUserRole({
+  static Future<ApiResponse<user_model.User>> updateUserRole({
     required String token,
     required String userId,
     required String role,
     String? reason,
   }) async {
     try {
-      final body = {
-        'role': role,
-        if (reason != null) 'reason': reason,
-      };
+      final body = {'role': role, if (reason != null) 'reason': reason};
 
       final response = await http.put(
         Uri.parse('$baseUrl/$userId/role'),
@@ -485,19 +470,19 @@ static Future<ApiResponse<LoginResponse>> loginUser({
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return ApiResponse<User>(
+        return ApiResponse<user_model.User>(
           success: true,
           message: data['message'],
-          data: User.fromJson(data['user']),
+          data: user_model.User.fromJson(data['user']),
         );
       } else {
-        return ApiResponse<User>(
+        return ApiResponse<user_model.User>(
           success: false,
           message: data['message'] ?? 'Failed to update role',
         );
       }
     } catch (e) {
-      return ApiResponse<User>(
+      return ApiResponse<user_model.User>(
         success: false,
         message: 'Network error: ${e.toString()}',
       );
@@ -537,49 +522,48 @@ static Future<ApiResponse<LoginResponse>> loginUser({
     }
   }
 
+  // Get user's saved locations
+  static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
+    required String token,
+  }) async {
+    try {
+      print('🌐 Making API call to: $baseUrl/locations');
+      print('🔑 Token: ${token.substring(0, 20)}...');
 
-// Get user's saved locations
-static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
-  required String token,
-}) async {
-  try {
-    print('🌐 Making API call to: $baseUrl/locations');
-    print('🔑 Token: ${token.substring(0, 20)}...');
-    
-    final response = await http.get(
-      Uri.parse('$baseUrl/locations'),
-      headers: _getHeaders(token: token),
-    );
-
-    print('📡 API Response:');
-    print('   - Status: ${response.statusCode}');
-    print('   - Body: ${response.body}');
-
-    final data = jsonDecode(response.body);
-
-    if (response.statusCode == 200) {
-      return ApiResponse<UserLocationsResponse>(
-        success: true,
-        message: data['message'],
-        data: UserLocationsResponse.fromJson(data['data']),
+      final response = await http.get(
+        Uri.parse('$baseUrl/locations'),
+        headers: _getHeaders(token: token),
       );
-    } else {
+
+      print('📡 API Response:');
+      print('   - Status: ${response.statusCode}');
+      print('   - Body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ApiResponse<UserLocationsResponse>(
+          success: true,
+          message: data['message'],
+          data: UserLocationsResponse.fromJson(data['data']),
+        );
+      } else {
+        return ApiResponse<UserLocationsResponse>(
+          success: false,
+          message: data['message'] ?? 'Failed to get locations',
+        );
+      }
+    } catch (e) {
+      print('❌ API Error: $e');
       return ApiResponse<UserLocationsResponse>(
         success: false,
-        message: data['message'] ?? 'Failed to get locations',
+        message: 'Network error: ${e.toString()}',
       );
     }
-  } catch (e) {
-    print('❌ API Error: $e');
-    return ApiResponse<UserLocationsResponse>(
-      success: false,
-      message: 'Network error: ${e.toString()}',
-    );
   }
-}
 
   // Add a new saved location
-  static Future<ApiResponse<SavedLocation>> addUserLocation({
+  static Future<ApiResponse<user_model.SavedLocation>> addUserLocation({
     required String token,
     required String name,
     required String address,
@@ -605,20 +589,20 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 201) {
-        return ApiResponse<SavedLocation>(
+        return ApiResponse<user_model.SavedLocation>(
           success: true,
           message: data['message'],
-          data: SavedLocation.fromJson(data['location']),
+          data: user_model.SavedLocation.fromJson(data['location']),
         );
       } else {
-        return ApiResponse<SavedLocation>(
+        return ApiResponse<user_model.SavedLocation>(
           success: false,
           message: data['message'] ?? 'Failed to add location',
           error: data['errors']?.join(', '),
         );
       }
     } catch (e) {
-      return ApiResponse<SavedLocation>(
+      return ApiResponse<user_model.SavedLocation>(
         success: false,
         message: 'Network error: ${e.toString()}',
       );
@@ -626,7 +610,7 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
   }
 
   // Update a saved location
-  static Future<ApiResponse<SavedLocation>> updateUserLocation({
+  static Future<ApiResponse<user_model.SavedLocation>> updateUserLocation({
     required String token,
     required String locationId,
     String? name,
@@ -654,19 +638,19 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return ApiResponse<SavedLocation>(
+        return ApiResponse<user_model.SavedLocation>(
           success: true,
           message: data['message'],
-          data: SavedLocation.fromJson(data['location']),
+          data: user_model.SavedLocation.fromJson(data['location']),
         );
       } else {
-        return ApiResponse<SavedLocation>(
+        return ApiResponse<user_model.SavedLocation>(
           success: false,
           message: data['message'] ?? 'Failed to update location',
         );
       }
     } catch (e) {
-      return ApiResponse<SavedLocation>(
+      return ApiResponse<user_model.SavedLocation>(
         success: false,
         message: 'Network error: ${e.toString()}',
       );
@@ -687,10 +671,7 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return ApiResponse<void>(
-          success: true,
-          message: data['message'],
-        );
+        return ApiResponse<void>(success: true, message: data['message']);
       } else {
         return ApiResponse<void>(
           success: false,
@@ -706,7 +687,7 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
   }
 
   // Update user location preferences
-  static Future<ApiResponse<LocationPreferences>> updateLocationPreferences({
+  static Future<ApiResponse<Map<String, dynamic>>> updateLocationPreferences({
     required String token,
     String? addressUsageOption,
     String? country,
@@ -714,7 +695,8 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
   }) async {
     try {
       final body = <String, dynamic>{};
-      if (addressUsageOption != null) body['addressUsageOption'] = addressUsageOption;
+      if (addressUsageOption != null)
+        body['addressUsageOption'] = addressUsageOption;
       if (country != null) body['country'] = country;
       if (province != null) body['province'] = province;
 
@@ -727,19 +709,22 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return ApiResponse<LocationPreferences>(
+        return ApiResponse<Map<String, dynamic>>(
           success: true,
           message: data['message'],
-          data: LocationPreferences.fromJson(data['preferences']),
+          data:
+              (data['preferences'] is Map)
+                  ? Map<String, dynamic>.from(data['preferences'])
+                  : <String, dynamic>{},
         );
       } else {
-        return ApiResponse<LocationPreferences>(
+        return ApiResponse<Map<String, dynamic>>(
           success: false,
           message: data['message'] ?? 'Failed to update preferences',
         );
       }
     } catch (e) {
-      return ApiResponse<LocationPreferences>(
+      return ApiResponse<Map<String, dynamic>>(
         success: false,
         message: 'Network error: ${e.toString()}',
       );
@@ -755,9 +740,7 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
     double radius = 10.0,
   }) async {
     try {
-      final queryParams = <String, String>{
-        'radius': radius.toString(),
-      };
+      final queryParams = <String, String>{'radius': radius.toString()};
 
       if (locationId != null) {
         queryParams['locationId'] = locationId;
@@ -766,12 +749,11 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
         queryParams['lng'] = lng.toString();
       }
 
-      final uri = Uri.parse('$baseUrl/nearby-vendors').replace(queryParameters: queryParams);
+      final uri = Uri.parse(
+        '$baseUrl/nearby-vendors',
+      ).replace(queryParameters: queryParams);
 
-      final response = await http.get(
-        uri,
-        headers: _getHeaders(token: token),
-      );
+      final response = await http.get(uri, headers: _getHeaders(token: token));
 
       final data = jsonDecode(response.body);
 
@@ -794,5 +776,4 @@ static Future<ApiResponse<UserLocationsResponse>> getUserLocations({
       );
     }
   }
-
 }

@@ -127,3 +127,27 @@ Map<String, dynamic> _$RoleHistoryToJson(RoleHistory instance) =>
       'changedAt': instance.changedAt?.toIso8601String(),
       'reason': instance.reason,
     };
+
+LoginResponse _$LoginResponseFromJson(Map<String, dynamic> json) =>
+    LoginResponse(
+      token: json['token'] as String,
+      tokenType: json['tokenType'] as String,
+      id: (json['id'] as num).toInt(),
+      email: json['email'] as String,
+      role: json['role'] as String,
+      fullName: json['fullName'] as String,
+      restaurantId: (json['restaurantId'] as num?)?.toInt(),
+      restaurantName: json['restaurantName'] as String?,
+    );
+
+Map<String, dynamic> _$LoginResponseToJson(LoginResponse instance) =>
+    <String, dynamic>{
+      'token': instance.token,
+      'tokenType': instance.tokenType,
+      'id': instance.id,
+      'email': instance.email,
+      'role': instance.role,
+      'fullName': instance.fullName,
+      'restaurantId': instance.restaurantId,
+      'restaurantName': instance.restaurantName,
+    };
