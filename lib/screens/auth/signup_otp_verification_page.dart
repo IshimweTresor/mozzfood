@@ -123,6 +123,8 @@ class _SignupOtpVerificationPageState extends State<SignupOtpVerificationPage> {
 
       if (response.success) {
         _showSuccessMessage(response.message);
+        // Wait a moment so user sees the success message
+        await Future.delayed(const Duration(seconds: 1));
         // Navigate to login page
         if (mounted) {
           Navigator.pushAndRemoveUntil(
