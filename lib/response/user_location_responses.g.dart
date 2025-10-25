@@ -9,10 +9,9 @@ part of 'user_location_responses.dart';
 UserLocationsResponse _$UserLocationsResponseFromJson(
   Map<String, dynamic> json,
 ) => UserLocationsResponse(
-  savedLocations:
-      (json['savedLocations'] as List<dynamic>)
-          .map((e) => SavedLocation.fromJson(e as Map<String, dynamic>))
-          .toList(),
+  savedLocations: (json['savedLocations'] as List<dynamic>)
+      .map((e) => SavedLocation.fromJson(e as Map<String, dynamic>))
+      .toList(),
   preferences: LocationPreferences.fromJson(
     json['preferences'] as Map<String, dynamic>,
   ),
@@ -25,13 +24,34 @@ Map<String, dynamic> _$UserLocationsResponseToJson(
   'preferences': instance.preferences,
 };
 
+CustomerAddressesResponse _$CustomerAddressesResponseFromJson(
+  Map<String, dynamic> json,
+) => CustomerAddressesResponse(
+  addresses: (json['addresses'] as List<dynamic>)
+      .map((e) => SavedLocation.fromJson(e as Map<String, dynamic>))
+      .toList(),
+);
+
+Map<String, dynamic> _$CustomerAddressesResponseToJson(
+  CustomerAddressesResponse instance,
+) => <String, dynamic>{'addresses': instance.addresses};
+
+SavedLocationResponse _$SavedLocationResponseFromJson(
+  Map<String, dynamic> json,
+) => SavedLocationResponse(
+  address: SavedLocation.fromJson(json['address'] as Map<String, dynamic>),
+);
+
+Map<String, dynamic> _$SavedLocationResponseToJson(
+  SavedLocationResponse instance,
+) => <String, dynamic>{'address': instance.address};
+
 NearbyVendorsResponse _$NearbyVendorsResponseFromJson(
   Map<String, dynamic> json,
 ) => NearbyVendorsResponse(
-  vendors:
-      (json['vendors'] as List<dynamic>)
-          .map((e) => VendorWithDistance.fromJson(e as Map<String, dynamic>))
-          .toList(),
+  vendors: (json['vendors'] as List<dynamic>)
+      .map((e) => VendorWithDistance.fromJson(e as Map<String, dynamic>))
+      .toList(),
   searchLocation: SearchLocation.fromJson(
     json['searchLocation'] as Map<String, dynamic>,
   ),
@@ -61,14 +81,12 @@ VendorWithDistance _$VendorWithDistanceFromJson(Map<String, dynamic> json) =>
       rating: (json['rating'] as num).toDouble(),
       totalRatings: (json['totalRatings'] as num).toInt(),
       distance: (json['distance'] as num).toDouble(),
-      ownerId:
-          json['ownerId'] == null
-              ? null
-              : VendorOwner.fromJson(json['ownerId'] as Map<String, dynamic>),
-      menuItems:
-          (json['menuItems'] as List<dynamic>?)
-              ?.map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
-              .toList(),
+      ownerId: json['ownerId'] == null
+          ? null
+          : VendorOwner.fromJson(json['ownerId'] as Map<String, dynamic>),
+      menuItems: (json['menuItems'] as List<dynamic>?)
+          ?.map((e) => MenuItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
 
 Map<String, dynamic> _$VendorWithDistanceToJson(VendorWithDistance instance) =>

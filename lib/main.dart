@@ -19,15 +19,13 @@ import 'screens/messages_page.dart';
 import 'screens/about_us_page.dart';
 import 'screens/more_options_page.dart';
 import 'screens/personal_information_page.dart';
+import 'screens/test_restaurants_page.dart';
 import 'package:provider/provider.dart';
-
 
 void main() {
   runApp(
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (context) => CartProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (context) => CartProvider())],
       child: const VubaApp(),
     ),
   );
@@ -120,7 +118,7 @@ class VubaApp extends StatelessWidget {
         '/location-selection': (context) => const LocationSelectionPage(),
         '/map-location-picker': (context) => const MapLocationPickerPage(),
         '/location-details': (context) => const LocationDetailsPage(),
-        '/store-front': (context) => StoreFrontPage(selectedLocationName: '',),
+        '/store-front': (context) => StoreFrontPage(selectedLocationName: ''),
         '/prime': (context) => const PrimePage(),
         '/orders': (context) => const OrdersPage(),
         '/cart': (context) => const CartPage(),
@@ -132,6 +130,7 @@ class VubaApp extends StatelessWidget {
         '/about-us': (context) => const AboutUsPage(),
         '/more-options': (context) => const MoreOptionsPage(),
         '/personal-information': (context) => const PersonalInformationPage(),
+        '/test-restaurants': (context) => const TestRestaurantsPage(),
       },
     );
   }

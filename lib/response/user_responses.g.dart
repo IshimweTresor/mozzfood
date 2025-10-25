@@ -8,10 +8,9 @@ part of 'user_responses.dart';
 
 UsersListResponse _$UsersListResponseFromJson(Map<String, dynamic> json) =>
     UsersListResponse(
-      users:
-          (json['users'] as List<dynamic>)
-              .map((e) => User.fromJson(e as Map<String, dynamic>))
-              .toList(),
+      users: (json['users'] as List<dynamic>)
+          .map((e) => User.fromJson(e as Map<String, dynamic>))
+          .toList(),
       pagination: PaginationInfo.fromJson(
         json['pagination'] as Map<String, dynamic>,
       ),
@@ -64,10 +63,9 @@ Map<String, dynamic> _$UserStatisticsToJson(UserStatistics instance) =>
 RoleHistoryResponse _$RoleHistoryResponseFromJson(Map<String, dynamic> json) =>
     RoleHistoryResponse(
       user: UserInfo.fromJson(json['user'] as Map<String, dynamic>),
-      roleHistory:
-          (json['roleHistory'] as List<dynamic>)
-              .map((e) => RoleHistory.fromJson(e as Map<String, dynamic>))
-              .toList(),
+      roleHistory: (json['roleHistory'] as List<dynamic>)
+          .map((e) => RoleHistory.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
 
 Map<String, dynamic> _$RoleHistoryResponseToJson(

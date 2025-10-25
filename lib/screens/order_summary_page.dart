@@ -46,7 +46,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     }
   }
 
-Future<void> _initiateMomoPayment() async {
+  Future<void> _initiateMomoPayment() async {
     setState(() => _isLoading = true);
 
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
@@ -59,34 +59,31 @@ Future<void> _initiateMomoPayment() async {
       return;
     }
 
-    final formattedPhone =
-        widget.selectedNumber.startsWith('0')
-            ? '250${widget.selectedNumber.substring(1)}'
-            : widget.selectedNumber;
+    final formattedPhone = widget.selectedNumber.startsWith('0')
+        ? '250${widget.selectedNumber.substring(1)}'
+        : widget.selectedNumber;
 
     final response = await OrderApi.initiateMomoPayment(
       token: token,
-      vendorId: cartProvider.vendor!.id!,
-      items:
-          cartProvider.items
-              .map<OrderItem>(
-                (cartItem) => OrderItem(
-                  itemId: cartItem.item,
-                  quantity: cartItem.quantity,
-                ),
-              )
-              .toList(),
-      lat: widget.selectedLocation?.lat ?? 0,
-      lng: widget.selectedLocation?.lng ?? 0,
+      restaurantId: cartProvider.currentRestaurantId!,
+      items: cartProvider.items
+          .map<OrderItem>(
+            (cartItem) =>
+                OrderItem(itemId: cartItem.item, quantity: cartItem.quantity),
+          )
+          .toList(),
+      address: widget.selectedLocation?.address ?? "Unknown Location",
+      latitude: widget.selectedLocation?.lat ?? 0,
+      longitude: widget.selectedLocation?.lng ?? 0,
       phone: formattedPhone,
     );
 
     setState(() => _isLoading = false);
 
     if (!response.success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(response.message ?? 'Error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response.message != null ? response.message! : 'Error')),
+      );
       return;
     }
 
@@ -113,7 +110,6 @@ Future<void> _initiateMomoPayment() async {
       );
     }
 
-
     // Optionally, show a message
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -123,9 +119,6 @@ Future<void> _initiateMomoPayment() async {
 
     // Optionally, you can still poll for payment in the background if you want
   }
-
-
-
 
   // Future<void> _pollMomoStatus() async {
   //   if (_momoReferenceId == null) return;
@@ -173,7 +166,6 @@ Future<void> _initiateMomoPayment() async {
   //     );
   //   }
   // }
-
 
   Future<void> _placeOrder() async {
     setState(() => _isPlacingOrder = true);
@@ -361,14 +353,17 @@ Future<void> _initiateMomoPayment() async {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            cartProvider.vendor?.name ?? 'Select Restaurant',
+                            cartProvider.currentRestaurantName ?? 'Select Restaurant',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.white,
+                          ),
                         ],
                       ),
                     ),
@@ -376,87 +371,89 @@ Future<void> _initiateMomoPayment() async {
                     const SizedBox(height: 16),
 
                     // Order item
-
-
-
-
-ListView.builder(
-  shrinkWrap: true,
-  physics: const NeverScrollableScrollPhysics(),
-  itemCount: cartItems.length,
-  itemBuilder: (context, index) {
-    final cartItem = cartItems[index];
-    final menuItem = cartItem.item;
-    return Row(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: menuItem.imageUrl != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    menuItem.imageUrl!,
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                  ),
-                )
-              : const Center(
-                  child: Icon(Icons.fastfood, color: Colors.white, size: 24),
-                ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                menuItem.name ?? '',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                menuItem.description ?? '',
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              'RWF ${menuItem.price ?? 0}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              'Quantity: ${cartItem.quantity}',
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  },
-),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: cartItems.length,
+                      itemBuilder: (context, index) {
+                        final cartItem = cartItems[index];
+                        final menuItem = cartItem.item;
+                        return Row(
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2A2A2A),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child:
+                                  (menuItem.imageUrl == null ||
+                                      menuItem.imageUrl!.isEmpty)
+                                  ? const Center(
+                                      child: Icon(
+                                        Icons.fastfood,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                    )
+                                  : ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        menuItem.imageUrl!,
+                                        width: 50,
+                                        height: 50,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    menuItem.name ?? '',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    menuItem.description ?? '',
+                                    style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'RWF ${menuItem.price ?? 0}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Quantity: ${cartItem.quantity}',
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
 
                     const SizedBox(height: 30),
                   ],
@@ -470,13 +467,13 @@ ListView.builder(
               child: Column(
                 children: [
                   GestureDetector(
-                    onTap:
-                        _isPaymentComplete && !_isPlacingOrder
-                            ? _placeOrder
-                            : null,
+                    onTap: _isPaymentComplete && !_isPlacingOrder
+                        ? _placeOrder
+                        : null,
                     child: Opacity(
-                      opacity:
-                          _isPaymentComplete && !_isPlacingOrder ? 1.0 : 0.5,
+                      opacity: _isPaymentComplete && !_isPlacingOrder
+                          ? 1.0
+                          : 0.5,
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(2),
@@ -516,8 +513,8 @@ ListView.builder(
                                 _isPaymentComplete
                                     ? 'PLACE ORDER'
                                     : (_isLoading
-                                        ? 'Requesting Payment...'
-                                        : 'Waiting for Payment...'),
+                                          ? 'Requesting Payment...'
+                                          : 'Waiting for Payment...'),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -688,7 +685,9 @@ ListView.builder(
       context,
       MaterialPageRoute(
         builder: (context) => PaymentMethodPage(
-          selectedLocation: widget.selectedLocation ?? SavedLocation(lat: 0, lng: 0, name: '', address: ''),
+          selectedLocation:
+              widget.selectedLocation ??
+              SavedLocation(lat: 0, lng: 0, name: '', address: ''),
         ),
       ),
     );

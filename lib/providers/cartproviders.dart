@@ -6,29 +6,29 @@ import '../models/menuItem.model.dart';
 class CartProvider extends ChangeNotifier {
   static const String _cartKey = 'cart_items';
   List<_CartItem> _items = [];
-  Vendor? _vendor; // The vendor for the current cart
+  int? _currentRestaurantId;
+  String? _currentRestaurantName;
 
   CartProvider() {
     _loadCart();
   }
 
   List<_CartItem> get items => List.unmodifiable(_items);
-  Vendor? get vendor => _vendor;
+  int? get currentRestaurantId => _currentRestaurantId;
+  String? get currentRestaurantName => _currentRestaurantName;
 
-
-    Future<String?> getAuthToken() async {
+  Future<String?> getAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token');
   }
-
 
   Future<void> _loadCart() async {
     final prefs = await SharedPreferences.getInstance();
     final cartString = prefs.getString(_cartKey);
     if (cartString != null) {
       final decoded = jsonDecode(cartString);
-      _vendor =
-          decoded['vendor'] != null ? Vendor.fromJson(decoded['vendor']) : null;
+      _currentRestaurantId = decoded['restaurantId'] as int?;
+      _currentRestaurantName = decoded['restaurantName'] as String?;
       _items =
           (decoded['items'] as List).map((e) => _CartItem.fromJson(e)).toList();
       notifyListeners();
@@ -38,24 +38,27 @@ class CartProvider extends ChangeNotifier {
   Future<void> _saveCart() async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = jsonEncode({
-      'vendor': _vendor?.toJson(),
+      'restaurantId': _currentRestaurantId,
+      'restaurantName': _currentRestaurantName,
       'items': _items.map((e) => e.toJson()).toList(),
     });
     await prefs.setString(_cartKey, encoded);
   }
 
   void addToCart(MenuItem item, int quantity) {
-    // If cart is empty, set vendor
-    if (_vendor == null && item.vendorId != null) {
-      _vendor = item.vendorId;
-    }
-    // If cart has items from a different vendor, clear cart and set new vendor
-    if (_vendor != null &&
-        item.vendorId != null &&
-        _vendor!.id != item.vendorId!.id) {
+    // If cart has items from a different restaurant, clear cart
+    if (_items.isNotEmpty && _currentRestaurantId != item.restaurantId) {
       _items.clear();
-      _vendor = item.vendorId;
+      _currentRestaurantId = item.restaurantId;
+      _currentRestaurantName =
+          null; // This should be set when adding the first item
     }
+
+    // If this is the first item, set the restaurant info
+    if (_items.isEmpty) {
+      _currentRestaurantId = item.restaurantId;
+    }
+
     final index = _items.indexWhere((e) => e.item.id == item.id);
     if (index != -1) {
       _items[index] = _items[index].copyWith(
@@ -68,14 +71,17 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void removeFromCart(String itemId) {
+  void removeFromCart(int itemId) {
     _items.removeWhere((e) => e.item.id == itemId);
-    if (_items.isEmpty) _vendor = null;
+    if (_items.isEmpty) {
+      _currentRestaurantId = null;
+      _currentRestaurantName = null;
+    }
     _saveCart();
     notifyListeners();
   }
 
-  void updateQuantity(String itemId, int quantity) {
+  void updateQuantity(int itemId, int quantity) {
     final index = _items.indexWhere((e) => e.item.id == itemId);
     if (index != -1) {
       _items[index] = _items[index].copyWith(quantity: quantity);
@@ -86,15 +92,16 @@ class CartProvider extends ChangeNotifier {
 
   void clearCart() {
     _items.clear();
-    _vendor = null;
+    _currentRestaurantId = null;
+    _currentRestaurantName = null;
     _saveCart();
     notifyListeners();
   }
 
   int get totalItems => _items.fold(0, (sum, e) => sum + e.quantity);
 
-  int get totalPrice =>
-      _items.fold(0, (sum, e) => sum + (e.item.price ?? 0) * e.quantity);
+  double get totalPrice =>
+      _items.fold(0, (sum, e) => sum + e.item.price * e.quantity);
 }
 
 class _CartItem {

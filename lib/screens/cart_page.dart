@@ -4,7 +4,6 @@ import '../providers/cartproviders.dart';
 import 'address_book_page.dart';
 import '../models/user.model.dart';
 
-
 class CartPage extends StatelessWidget {
   final SavedLocation? selectedLocation;
   const CartPage({super.key, this.selectedLocation});
@@ -13,7 +12,8 @@ class CartPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
     final cartItems = cartProvider.items;
-    final vendor = cartProvider.vendor;
+    final restaurantId = cartProvider.currentRestaurantId;
+    final restaurantName = cartProvider.currentRestaurantName;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
@@ -68,8 +68,8 @@ class CartPage extends StatelessWidget {
                 ],
               ),
             ),
-            // Vendor Name
-            if (vendor != null)
+            // Restaurant Name
+            if (restaurantName != null)
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.symmetric(
@@ -84,7 +84,7 @@ class CartPage extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        vendor.name ?? '',
+                        restaurantName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -133,14 +133,14 @@ class CartPage extends StatelessWidget {
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(25),
                                         child:
-                                            menuItem.imageUrl == null
+                                            menuItem.imageUrl.isEmpty
                                                 ? const Icon(
                                                   Icons.fastfood,
                                                   color: Colors.grey,
                                                   size: 25,
                                                 )
                                                 : Image.network(
-                                                  menuItem.imageUrl!,
+                                                  menuItem.imageUrl,
                                                   width: 50,
                                                   height: 50,
                                                   fit: BoxFit.cover,
@@ -172,7 +172,7 @@ class CartPage extends StatelessWidget {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            menuItem.name ?? '',
+                                            menuItem.name,
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.w600,
@@ -182,7 +182,7 @@ class CartPage extends StatelessWidget {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            menuItem.description ?? '',
+                                            menuItem.description,
                                             style: const TextStyle(
                                               color: Color(0xFF9E9E9E),
                                               fontSize: 14,
@@ -197,7 +197,7 @@ class CartPage extends StatelessWidget {
                                     // Price
                                     Flexible(
                                       child: Text(
-                                        'RWF ${menuItem.price ?? 0}',
+                                        'RWF ${menuItem.price}',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w600,
@@ -225,7 +225,7 @@ class CartPage extends StatelessWidget {
                                           onTap: () {
                                             if (cartItem.quantity > 1) {
                                               cartProvider.updateQuantity(
-                                                menuItem.id!,
+                                                menuItem.id,
                                                 cartItem.quantity - 1,
                                               );
                                             }
@@ -265,7 +265,7 @@ class CartPage extends StatelessWidget {
                                         GestureDetector(
                                           onTap: () {
                                             cartProvider.updateQuantity(
-                                              menuItem.id!,
+                                              menuItem.id,
                                               cartItem.quantity + 1,
                                             );
                                           },
@@ -295,7 +295,7 @@ class CartPage extends StatelessWidget {
                                     GestureDetector(
                                       onTap: () {
                                         cartProvider.removeFromCart(
-                                          menuItem.id!,
+                                          menuItem.id,
                                         );
                                       },
                                       child: const Icon(

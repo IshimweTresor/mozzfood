@@ -38,7 +38,7 @@ class User {
     final id = json['id'] ?? json['_id'];
     final modifiedJson = Map<String, dynamic>.from(json);
     modifiedJson['_id'] = id;
-    
+
     return _$UserFromJson(modifiedJson);
   }
 
@@ -54,6 +54,7 @@ class SavedLocation {
   final double lat;
   final double lng;
   final String? phone;
+  final String? imageUrl;
   final bool? isDefault;
   final DateTime? createdAt;
 
@@ -64,11 +65,12 @@ class SavedLocation {
     required this.lat,
     required this.lng,
     this.phone,
+    this.imageUrl,
     this.isDefault,
     this.createdAt,
   });
 
-  factory SavedLocation.fromJson(Map<String, dynamic> json) => 
+  factory SavedLocation.fromJson(Map<String, dynamic> json) =>
       _$SavedLocationFromJson(json);
   Map<String, dynamic> toJson() => _$SavedLocationToJson(this);
 }
@@ -79,13 +81,10 @@ class LocationPreferences {
   final String? country;
   final String? province; // 'KIGALI', 'MUSANZE', 'RUBAVU', 'RUSIZI'
 
-  LocationPreferences({
-    this.addressUsageOption,
-    this.country,
-    this.province,
-  });
+  LocationPreferences({this.addressUsageOption, this.country, this.province});
 
-  factory LocationPreferences.fromJson(Map<String, dynamic> json) => _$LocationPreferencesFromJson(json);
+  factory LocationPreferences.fromJson(Map<String, dynamic> json) =>
+      _$LocationPreferencesFromJson(json);
   Map<String, dynamic> toJson() => _$LocationPreferencesToJson(this);
 }
 
@@ -136,7 +135,7 @@ class LoginResponse {
   final int? restaurantId;
   final String? restaurantName;
 
-   LoginResponse({
+  LoginResponse({
     required this.token,
     required this.tokenType,
     required this.id,

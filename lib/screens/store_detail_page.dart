@@ -24,8 +24,11 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
   }
 
   Future<List<MenuItem>> _fetchMenuItems() async {
-    final response = await MenuItemApi.getAllMenuItems(
-      vendorId: widget.vendor.id,
+    if (widget.vendor.restaurantId == null) {
+      return [];
+    }
+    final response = await MenuItemApi.getMenuItemsByRestaurant(
+      widget.vendor.restaurantId!,
     );
     if (response.success && response.data != null) {
       return response.data!;
@@ -45,7 +48,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          widget.vendor.name ?? '',
+          widget.vendor.restaurantName ?? '',
           style: const TextStyle(
             color: AppColors.onBackground,
             fontWeight: FontWeight.bold,
@@ -111,16 +114,16 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.vendor.name ?? '',
+                  widget.vendor.restaurantName ?? '',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
                     color: AppColors.onBackground,
                   ),
                 ),
-                if (widget.vendor.address != null)
+                if (widget.vendor.location != null)
                   Text(
-                    widget.vendor.address!,
+                    widget.vendor.location!,
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -144,13 +147,13 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                       ),
                       decoration: BoxDecoration(
                         color:
-                            widget.vendor.isOpen == true
+                            widget.vendor.active == true
                                 ? Colors.green
                                 : Colors.red,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        widget.vendor.isOpen == true ? 'OPEN' : 'CLOSED',
+                        widget.vendor.active == true ? 'OPEN' : 'CLOSED',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
@@ -195,9 +198,9 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                   itemBuilder: (context, index) {
                     final item = items[index];
                     return _ProductListItem(
-                      name: item.name ?? '',
-                      price: item.price != null ? 'RWF ${item.price}' : '',
-                      description: item.description ?? '',
+                      name: item.name,
+                      price: 'RWF ${item.price}',
+                      description: item.description,
                       image: item.imageUrl,
                       // Inside your ListView.builder in StoreDetailPage:
                       onTap: () {
@@ -208,7 +211,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                           builder: (context) {
                             return ProductDetailSheet(
                               menuItem: item, // Pass the MenuItem object
-                              storeName: widget.vendor.name ?? '',
+                              storeName: widget.vendor.restaurantName ?? '',
                             );
                           },
                         );
@@ -246,7 +249,7 @@ class _ProductListItem extends StatelessWidget {
       color: AppColors.surface,
       child: ListTile(
         leading:
-            image == null
+            (image == null || image!.isEmpty)
                 ? const Icon(Icons.shopping_bag, color: AppColors.primary)
                 : Image.network(
                   image!,
@@ -289,8 +292,6 @@ class _ProductListItem extends StatelessWidget {
   }
 }
 
-
-
 class ProductDetailSheet extends StatefulWidget {
   final MenuItem menuItem;
   final String storeName;
@@ -309,8 +310,7 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final priceValue = widget.menuItem.price ?? 0;
-    final total = priceValue * quantity;
+    final total = widget.menuItem.price * quantity;
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
       minChildSize: 0.4,
@@ -339,33 +339,34 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
                   ),
                 ),
                 Center(
-                  child: widget.menuItem.imageUrl == null
-                      ? Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.08),
+                  child:
+                      widget.menuItem.imageUrl.isEmpty
+                          ? Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.shopping_bag,
+                              size: 60,
+                              color: AppColors.primary,
+                            ),
+                          )
+                          : ClipRRect(
                             borderRadius: BorderRadius.circular(16),
+                            child: Image.network(
+                              widget.menuItem.imageUrl,
+                              height: 140,
+                              width: 140,
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.shopping_bag,
-                            size: 60,
-                            color: AppColors.primary,
-                          ),
-                        )
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            widget.menuItem.imageUrl!,
-                            height: 140,
-                            width: 140,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  widget.menuItem.name ?? '',
+                  widget.menuItem.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 22,
@@ -383,7 +384,7 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  widget.menuItem.price != null ? 'RWF ${widget.menuItem.price}' : '',
+                  'RWF ${widget.menuItem.price}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
@@ -401,8 +402,8 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.menuItem.description?.isNotEmpty == true
-                      ? widget.menuItem.description!
+                  widget.menuItem.description.isNotEmpty
+                      ? widget.menuItem.description
                       : '-',
                   style: const TextStyle(
                     fontSize: 14,
@@ -446,9 +447,10 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
                             Icons.remove_circle_outline,
                             color: AppColors.primary,
                           ),
-                          onPressed: quantity > 1
-                              ? () => setState(() => quantity--)
-                              : null,
+                          onPressed:
+                              quantity > 1
+                                  ? () => setState(() => quantity--)
+                                  : null,
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -487,53 +489,56 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
                       ),
                     ),
                     onPressed: () {
-                      Provider.of<CartProvider>(context, listen: false)
-                          .addToCart(widget.menuItem, quantity);
+                      Provider.of<CartProvider>(
+                        context,
+                        listen: false,
+                      ).addToCart(widget.menuItem, quantity);
                       Navigator.of(context).pop();
                       showDialog(
                         context: context,
-                        builder: (context) => AlertDialog(
-                          backgroundColor: AppColors.surface,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(
-                                Icons.check_circle,
-                                color: AppColors.primary,
-                                size: 48,
+                        builder:
+                            (context) => AlertDialog(
+                              backgroundColor: AppColors.surface,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              SizedBox(height: 12),
-                              Text(
-                                'SUCCESS',
-                                style: TextStyle(
-                                  color: AppColors.onBackground,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: AppColors.primary,
+                                    size: 48,
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'SUCCESS',
+                                    style: TextStyle(
+                                      color: AppColors.onBackground,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Product added to cart\nSuccessfully!',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text(
+                                    'Ok',
+                                    style: TextStyle(color: AppColors.primary),
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Product added to cart\nSuccessfully!',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text(
-                                'Ok',
-                                style: TextStyle(color: AppColors.primary),
-                              ),
+                              ],
                             ),
-                          ],
-                        ),
                       );
                     },
                     label: const Text(

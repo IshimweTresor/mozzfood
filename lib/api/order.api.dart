@@ -5,10 +5,9 @@ import 'package:vuba/models/order.model.dart';
 import 'package:vuba/response/api_response.dart';
 
 class OrderApi {
-  static const String baseUrl =
-      'https://food-delivery-backend-hazel.vercel.app/api/orders';
+  static const String baseUrl = 'http://167.235.155.3:8085/api/orders';
   static const String momoBaseUrl =
-      'https://food-delivery-backend-hazel.vercel.app/api/orders/payments';
+      'http://167.235.155.3:8085/api/orders/payments';
 
   static Map<String, String> _getHeaders({String? token}) {
     final headers = {'Content-Type': 'application/json'};
@@ -19,19 +18,26 @@ class OrderApi {
   /// Create a new order (POST /api/orders)
   static Future<ApiResponse<Order>> createOrder({
     required String token,
-    required String vendorId,
+    required int restaurantId,
     required List<OrderItem> items,
-    required double lat,
-    required double lng,
+    required String address,
+    required double latitude,
+    required double longitude,
   }) async {
     try {
       final response = await http.post(
         Uri.parse(baseUrl),
         headers: _getHeaders(token: token),
         body: jsonEncode({
-          'vendorId': vendorId,
-          'items': items.map((i) => i.toJson()).toList(),
-          'location': {'lat': lat, 'lng': lng},
+          'restaurantId': restaurantId,
+          'items': items
+              .map((i) => {'itemId': i.itemId.id, 'quantity': i.quantity})
+              .toList(),
+          'location': {
+            'address': address,
+            'latitude': latitude,
+            'longitude': longitude,
+          },
         }),
       );
       final data = jsonDecode(response.body);
@@ -39,13 +45,13 @@ class OrderApi {
         return ApiResponse<Order>(
           success: true,
           message: data['message'],
-          data: Order.fromJson(data['order']),
+          data: Order.fromJson(data['data']),
         );
       } else {
         return ApiResponse<Order>(
           success: false,
           message: data['message'] ?? 'Failed to create order',
-          error: data['debug'] ?? data['errors'],
+          error: data['error'],
         );
       }
     } catch (e) {
@@ -59,10 +65,11 @@ class OrderApi {
   /// Initiate MoMo payment (POST /api/payments/momo-request)
   static Future<ApiResponse<Order>> initiateMomoPayment({
     required String token,
-    required String vendorId,
+    required int restaurantId,
     required List<OrderItem> items,
-    required double lat,
-    required double lng,
+    required String address,
+    required double latitude,
+    required double longitude,
     required String phone,
   }) async {
     try {
@@ -70,12 +77,15 @@ class OrderApi {
         Uri.parse('$momoBaseUrl/momo-request'),
         headers: _getHeaders(token: token),
         body: jsonEncode({
-          "vendorId": vendorId,
-          "items":
-              items
-                  .map((i) => {"itemId": i.itemId, "quantity": i.quantity})
-                  .toList(),
-          "location": {"lat": lat, "lng": lng},
+          "restaurantId": restaurantId,
+          "items": items
+              .map((i) => {'itemId': i.itemId.id, 'quantity': i.quantity})
+              .toList(),
+          "location": {
+            'address': address,
+            'latitude': latitude,
+            'longitude': longitude,
+          },
           "phone": phone,
           "currency": "EUR",
         }),
@@ -87,7 +97,7 @@ class OrderApi {
         return ApiResponse<Order>(
           success: true,
           message: data['message'],
-          data: Order.fromJson(data['order']),
+          data: Order.fromJson(data['data']),
           referenceId: data['referenceId'],
         );
       } else {
@@ -121,7 +131,7 @@ class OrderApi {
         return ApiResponse<Order>(
           success: true,
           message: data['message'],
-          data: Order.fromJson(data['order']),
+          data: Order.fromJson(data['data']),
         );
       } else {
         return ApiResponse<Order>(
@@ -158,10 +168,9 @@ class OrderApi {
       final response = await http.get(uri, headers: _getHeaders(token: token));
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        final orders =
-            (data['data']['orders'] as List)
-                .map((o) => Order.fromJson(o))
-                .toList();
+        final orders = (data['data'] as List)
+            .map((o) => Order.fromJson(o))
+            .toList();
         return ApiResponse<List<Order>>(
           success: true,
           message: data['message'],
@@ -196,7 +205,7 @@ class OrderApi {
         return ApiResponse<Order>(
           success: true,
           message: data['message'],
-          data: Order.fromJson(data['order']),
+          data: Order.fromJson(data['data']),
         );
       } else {
         return ApiResponse<Order>(
@@ -222,19 +231,20 @@ class OrderApi {
       final response = await http.patch(
         Uri.parse('$baseUrl/$orderId/status'),
         headers: _getHeaders(token: token),
-        body: jsonEncode({'orderStatus': orderStatus}),
+        body: jsonEncode({'status': orderStatus}),
       );
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResponse<Order>(
           success: true,
           message: data['message'],
-          data: Order.fromJson(data['order']),
+          data: Order.fromJson(data['data']),
         );
       } else {
         return ApiResponse<Order>(
           success: false,
           message: data['message'] ?? 'Failed to update order status',
+          error: data['error'],
         );
       }
     } catch (e) {
@@ -262,12 +272,13 @@ class OrderApi {
         return ApiResponse<Order>(
           success: true,
           message: data['message'],
-          data: Order.fromJson(data['order']),
+          data: Order.fromJson(data['data']),
         );
       } else {
         return ApiResponse<Order>(
           success: false,
           message: data['message'] ?? 'Failed to cancel order',
+          error: data['error'],
         );
       }
     } catch (e) {

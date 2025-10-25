@@ -9,10 +9,79 @@ import '../models/user.model.dart' show LoginResponse;
 import 'package:vuba/response/user_location_responses.dart';
 
 class UserApi {
+  // Get customer addresses by customerId
+  static Future<ApiResponse<List<user_model.SavedLocation>>>
+  getCustomerAddresses({required String token, required int customerId}) async {
+    try {
+      final uri = Uri.parse(
+        'http://167.235.155.3:8085/api/locations/getCustomerAddresses',
+      ).replace(queryParameters: {'customerId': customerId.toString()});
+
+      final response = await http.get(uri, headers: _getHeaders(token: token));
+
+      print('📡 GetCustomerAddresses Response:');
+      print('   - Status: ${response.statusCode}');
+      print('   - Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // The backend returns a map with a 'data' field containing the list
+        final locationsList = data['data'] as List;
+        final locations =
+            locationsList.map((json) {
+              // Manually map backend fields to model fields
+              return user_model.SavedLocation(
+                id: json['customerAddressId']?.toString(),
+                name:
+                    json['areaName'] ??
+                    'Address', // Use areaName as name or fallback
+                address:
+                    json['street'] ??
+                    'No Street', // Use street as address or fallback
+                lat:
+                    json['latitude'] != null
+                        ? (json['latitude'] as num).toDouble()
+                        : 0.0,
+                lng:
+                    json['longitude'] != null
+                        ? (json['longitude'] as num).toDouble()
+                        : 0.0,
+                phone: json['localContactNumber'] as String?,
+                imageUrl: json['imageUrl'] as String?,
+                isDefault: json['isDefault'] as bool? ?? false,
+                createdAt:
+                    json['createdAt'] == null
+                        ? null
+                        : DateTime.parse(json['createdAt'] as String),
+              );
+            }).toList();
+        return ApiResponse<List<user_model.SavedLocation>>(
+          success: true,
+          data: locations,
+          message: data['message'] ?? 'Fetched customer addresses',
+        );
+      } else {
+        return ApiResponse<List<user_model.SavedLocation>>(
+          success: false,
+          data: null,
+          message: 'Failed to fetch customer addresses',
+        );
+      }
+    } catch (e) {
+      print('❌ GetCustomerAddresses Error: $e');
+      return ApiResponse<List<user_model.SavedLocation>>(
+        success: false,
+        message: 'Error: $e',
+      );
+    }
+  }
+
   // For Android Emulator, use 10.0.2.2 instead of localhost
   // For real device on same network, use your computer's local IP (e.g., 192.168.x.x)
   // For remote server, use the actual server IP/domain
   static const String baseUrl = 'http://167.235.155.3:8085/api/auth';
+  static const String locationBaseUrl =
+      'http://167.235.155.3:8085/api/locations';
 
   // Alternative: Use this if backend is on your local machine
   // static const String baseUrl = 'http://10.0.2.2:8085/api/auth'; // For Android Emulator
@@ -27,6 +96,120 @@ class UserApi {
     }
 
     return headers;
+  }
+
+  // Create addresses/locations
+  static Future<ApiResponse<dynamic>> createAddresses({
+    required String token,
+    required int customerId,
+    required int cityId,
+    required String street,
+    required String areaName,
+    required String houseNumber,
+    required String localContactNumber,
+    required double latitude,
+    required double longitude,
+    required int addressType, // 0=HOME, 1=WORK, 2=OTHER
+    required String usageOption,
+    bool isDefault = false,
+    String? imagePath, // Optional image file path
+  }) async {
+    try {
+      print('🌍 Creating address...');
+      print('📍 Customer ID: $customerId');
+      print('🏙️ City ID: $cityId');
+      print('🏠 Street: $street');
+      print('📮 Address Type: $addressType');
+
+      // Convert addressType int to enum string for backend
+      String addressTypeEnum;
+      switch (addressType) {
+        case 0:
+          addressTypeEnum = 'HOME';
+          break;
+        case 1:
+          addressTypeEnum = 'WORK';
+          break;
+        case 2:
+          addressTypeEnum = 'OTHER';
+          break;
+        default:
+          addressTypeEnum = 'HOME';
+      }
+      print('📮 Address Type Enum: $addressTypeEnum');
+
+      // Build query parameters - all parameters go in the URL
+      final Map<String, String> queryParams = {
+        'customerId': customerId.toString(),
+        'cityId': cityId.toString(),
+        'street': street,
+        'areaName': areaName,
+        'houseNumber': houseNumber,
+        'localContactNumber': localContactNumber,
+        'latitude': latitude.toString(),
+        'longitude': longitude.toString(),
+        'addressType':
+            addressTypeEnum, // Send as enum string: "HOME", "WORK", "OTHER"
+        'usageOption': usageOption,
+        'isDefault': isDefault.toString(),
+      };
+
+      final uri = Uri.parse(
+        '$locationBaseUrl/createAddresses',
+      ).replace(queryParameters: queryParams);
+
+      print('🔗 Request URI: $uri');
+
+      // Create multipart request
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll({'Authorization': 'Bearer $token'});
+
+      print('� Request fields: ${request.fields}');
+
+      // Add image file if provided
+      if (imagePath != null && imagePath.isNotEmpty) {
+        try {
+          final imageFile = await http.MultipartFile.fromPath(
+            'image',
+            imagePath,
+          );
+          request.files.add(imageFile);
+          print('📷 Image added: $imagePath');
+        } catch (imageError) {
+          print('⚠️ Failed to add image: $imageError');
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print('🌐 Create Address Response:');
+      print('   - Status Code: ${response.statusCode}');
+      print('   - Body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return ApiResponse<dynamic>(
+          success: true,
+          message: data['message'] ?? 'Address created successfully',
+          data: data,
+        );
+      } else {
+        return ApiResponse<dynamic>(
+          success: false,
+          message: data['message'] ?? 'Failed to create address',
+          error: data['error'],
+        );
+      }
+    } catch (e, stackTrace) {
+      print('❌ Create Address Error: $e');
+      print('❌ Stack trace: $stackTrace');
+      return ApiResponse<dynamic>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
   }
 
   // Register user and send verification code

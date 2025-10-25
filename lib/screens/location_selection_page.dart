@@ -22,7 +22,7 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
   String _selectedCountry = 'RWANDA';
   String _selectedProvince = 'KIGALI';
   List<SavedLocation> _savedLocations = [];
-  LocationPreferences? _preferences;
+  // Removed unused _preferences field
   bool _isLoading = true;
   String? _authToken;
 
@@ -64,10 +64,26 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     });
 
     try {
-      print(
-        '🔍 Fetching user locations with token: ${_authToken?.substring(0, 20)}...',
+      final prefs = await SharedPreferences.getInstance();
+      dynamic customerIdRaw = prefs.get('customer_id');
+      int? customerId;
+      if (customerIdRaw is int) {
+        customerId = customerIdRaw;
+      } else if (customerIdRaw is String) {
+        customerId = int.tryParse(customerIdRaw);
+      }
+      if (customerId == null) {
+        _showErrorMessage('Customer ID not found.');
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+      print('🔍 Fetching customer addresses for customerId: $customerId');
+      final response = await UserApi.getCustomerAddresses(
+        token: _authToken!,
+        customerId: customerId,
       );
-      final response = await UserApi.getUserLocations(token: _authToken!);
 
       print('📍 API Response:');
       print('   - Success: ${response.success}');
@@ -75,16 +91,9 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
       print('   - Data: ${response.data}');
 
       if (response.success && response.data != null) {
-        print('📍 Locations found: ${response.data!.savedLocations.length}');
-        print('📍 Preferences: ${response.data!.preferences}');
-
+        print('📍 Locations found: ${response.data!.length}');
         setState(() {
-          _savedLocations = response.data!.savedLocations;
-          _preferences = response.data!.preferences;
-          _selectedAddressOption =
-              _preferences?.addressUsageOption ?? 'Always Ask';
-          _selectedCountry = _preferences?.country ?? 'RWANDA';
-          _selectedProvince = _preferences?.province ?? 'KIGALI';
+          _savedLocations = response.data!;
         });
       } else {
         print('❌ Failed to fetch locations: ${response.message}');
@@ -112,9 +121,6 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
       );
 
       if (response.success && response.data != null) {
-        setState(() {
-          _preferences = response.data as LocationPreferences?;
-        });
         _showSuccessMessage('Preferences updated successfully');
       } else {
         _showErrorMessage(response.message);
@@ -666,6 +672,9 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
   }
 
   Widget _buildSavedLocationCard(SavedLocation location, int index) {
+    // Always check for null before using imageUrl
+    final imageUrl = location.imageUrl ?? '';
+    // ...existing code...
     return InkWell(
       onTap: () => _selectLocation(location),
       borderRadius: BorderRadius.circular(12),
@@ -688,6 +697,22 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Example usage: display image if available
+            if (imageUrl.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    imageUrl,
+                    height: 80,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(),
+                  ),
+                ),
+              ),
+            // ...existing code for card...
             Row(
               children: [
                 Container(
@@ -772,7 +797,6 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                         ),
                       ),
                     ),
-                    // In _buildSavedLocationCard method, around line 600
                     Material(
                       color: Colors.transparent,
                       child: InkWell(

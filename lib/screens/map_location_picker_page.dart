@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
 import 'location_details_page.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class MapLocationPickerPage extends StatefulWidget {
   const MapLocationPickerPage({super.key});
@@ -212,13 +215,222 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                     CustomButton(
                       text: 'Confirm Location',
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LocationDetailsPage(),
-                          ),
-                        );
-                      },
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (context) {
+                            // Controllers for each field
+                            final customerIdController = TextEditingController();
+                            final cityIdController = TextEditingController();
+                            final streetController = TextEditingController();
+                            final areaNameController = TextEditingController();
+                            final houseNumberController = TextEditingController();
+                            final localContactController = TextEditingController();
+                            final latitudeController = TextEditingController();
+                            final longitudeController = TextEditingController();
+                            final usageOptionController = TextEditingController();
+                            int addressTypeInt = 0;
+                            bool isDefault = false;
+                            String? imagePath;
+                            File? imageFile;
+                            final ImagePicker picker = ImagePicker();
+
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: MediaQuery.of(context).viewInsets.bottom,
+                                left: 20,
+                                right: 20,
+                                top: 20,
+                              ),
+                              child: SingleChildScrollView(
+                                child: StatefulBuilder(
+                                  builder: (context, setModalState) {
+                                    return Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Add Location Details',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 16),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            labelText: 'Customer ID',
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          controller: customerIdController,
+                                        ),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            labelText: 'City ID',
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          controller: cityIdController,
+                                        ),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            labelText: 'Street',
+                                          ),
+                                          controller: streetController,
+                                        ),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            labelText: 'Area Name',
+                                          ),
+                                          controller: areaNameController,
+                                        ),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            labelText: 'House Number',
+                                          ),
+                                          controller: houseNumberController,
+                                        ),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            labelText: 'Local Contact Number',
+                                          ),
+                                          keyboardType: TextInputType.phone,
+                                          controller: localContactController,
+                                        ),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            labelText: 'Latitude',
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          controller: latitudeController,
+                                        ),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            labelText: 'Longitude',
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          controller: longitudeController,
+                                        ),
+                                        DropdownButtonFormField<int>(
+                                          decoration: InputDecoration(
+                                            labelText: 'Address Type',
+                                          ),
+                                          value: addressTypeInt,
+                                          items: [
+                                            DropdownMenuItem(
+                                                value: 0,
+                                                child: Text('HOME (0)')),
+                                            DropdownMenuItem(
+                                                value: 1,
+                                                child: Text('WORK (1)')),
+                                            DropdownMenuItem(
+                                                value: 2,
+                                                child: Text('OTHER (2)')),
+                                          ],
+                                          onChanged: (val) {
+                                            setModalState(() {
+                                              addressTypeInt = val ?? 0;
+                                            });
+                                          },
+                                        ),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            labelText: 'Usage Option',
+                                          ),
+                                          controller: usageOptionController,
+                                        ),
+                                        Row(
+                                          children: [
+                                            Checkbox(
+                                              value: isDefault,
+                                              onChanged: (val) {
+                                                setModalState(() {
+                                                  isDefault = val ?? false;
+                                                });
+                                              },
+                                            ),
+                                            Text('Is Default'),
+                                          ],
+                                        ),
+                                        SizedBox(height: 8),
+                                        ElevatedButton.icon(
+                                          icon: Icon(Icons.image),
+                                          label: Text(imageFile == null ? 'Pick Image' : 'Image Selected'),
+                                          onPressed: () async {
+                                            final picked = await picker.pickImage(source: ImageSource.gallery);
+                                            if (picked != null) {
+                                              setModalState(() {
+                                                imageFile = File(picked.path);
+                                                imagePath = picked.path;
+                                              });
+                                            }
+                                          },
+                                        ),
+                                        if (imageFile != null)
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                            child: Image.file(imageFile!, height: 80),
+                                          ),
+                                        SizedBox(height: 16),
+                                        CustomButton(
+                                          text: 'Submit',
+                                          onPressed: () async {
+                                            final customerId =
+                                                int.tryParse(
+                                                    customerIdController.text);
+                                            final cityId =
+                                                int.tryParse(cityIdController.text);
+                                            final street = streetController.text;
+                                            final areaName = areaNameController.text;
+                                            final houseNumber = houseNumberController.text;
+                                            final localContact = localContactController.text;
+                                            final latitude =
+                                                double.tryParse(latitudeController.text);
+                                            final longitude =
+                                                double.tryParse(longitudeController.text);
+                                            final usageOption = usageOptionController.text;
+                                            // TODO: Replace with your actual token
+                                            final token = 'token';
+                                            if (customerId == null || cityId == null || latitude == null || longitude == null) {
+                                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill all required fields correctly.')));
+                                              return;
+                                            }
+                                            final queryParams = {
+                                              'customerId': customerId.toString(),
+                                              'cityId': cityId.toString(),
+                                              'street': street,
+                                              'areaName': areaName,
+                                              'houseNumber': houseNumber,
+                                              'localContactNumber': localContact,
+                                              'latitude': latitude.toString(),
+                                              'longitude': longitude.toString(),
+                                              'addressType': addressTypeInt.toString(),
+                                              'usageOption': usageOption,
+                                              'isDefault': isDefault.toString(),
+                                            };
+                                            final uri = Uri.parse('http://167.235.155.3:8085/api/locations/createAddresses').replace(queryParameters: queryParams);
+                                            final request = http.MultipartRequest('POST', uri);
+                                            request.headers.addAll({'Authorization': 'Bearer $token'});
+                                            if (imagePath != null && imagePath!.isNotEmpty) {
+                                              final imageMultipart = await http.MultipartFile.fromPath('image', imagePath!);
+                                              request.files.add(imageMultipart);
+                                            }
+                                            final streamedResponse = await request.send();
+                                            final response = await http.Response.fromStream(streamedResponse);
+                                            print('🌐 Create Address Response:');
+                                            print('   - Status Code: [32m${response.statusCode}[0m');
+                                            print('   - Body: ${response.body}');
+                                            Navigator.pop(context);
+                                          },
+                                        ),
+                                        SizedBox(height: 16),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              )
+                              );
+                            },
+                          );
+                        },
                     ),
                     const SizedBox(height: 20),
                     Row(

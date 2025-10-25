@@ -495,7 +495,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       ),
                     ),
                     Text(
-                      'Lat: ${order.location.lat ?? '-'}, Lng: ${order.location.lng ?? '-'}',
+                      'Lat: ${order.location.latitude ?? '-'}, Lng: ${order.location.longitude ?? '-'}',
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.onBackground,

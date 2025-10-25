@@ -1,6 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'package:vuba/models/menuItem.model.dart';
-import 'package:vuba/models/menuItem.model.dart' as menuitem;
 
 part 'order.model.g.dart';
 
@@ -8,21 +7,21 @@ part 'order.model.g.dart';
 class Order {
   @JsonKey(name: '_id')
   final String? id;
-  final User userId; // <- nested
-  final Vendor vendorId; // <- nested
+  final User userId;
+  final int restaurantId;
   final String? riderId;
   final List<OrderItem> items;
   final double totalPrice;
   final String paymentStatus;
   final String orderStatus;
-  final menuitem.Location location;
+  final DeliveryLocation location;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
   Order({
     this.id,
     required this.userId,
-    required this.vendorId,
+    required this.restaurantId,
     this.riderId,
     required this.items,
     required this.totalPrice,
@@ -57,22 +56,20 @@ class User {
 }
 
 @JsonSerializable(explicitToJson: true)
-class Vendor {
-  @JsonKey(name: '_id')
-  final String id;
-  final String name;
+class DeliveryLocation {
   final String address;
-  final menuitem.Location location;
+  final double latitude;
+  final double longitude;
 
-  Vendor({
-    required this.id,
-    required this.name,
+  DeliveryLocation({
     required this.address,
-    required this.location,
+    required this.latitude,
+    required this.longitude,
   });
 
-  factory Vendor.fromJson(Map<String, dynamic> json) => _$VendorFromJson(json);
-  Map<String, dynamic> toJson() => _$VendorToJson(this);
+  factory DeliveryLocation.fromJson(Map<String, dynamic> json) =>
+      _$DeliveryLocationFromJson(json);
+  Map<String, dynamic> toJson() => _$DeliveryLocationToJson(this);
 }
 
 @JsonSerializable(explicitToJson: true)

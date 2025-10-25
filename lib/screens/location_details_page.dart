@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../api/user.api.dart';
 import '../models/user.model.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import 'home_page.dart';
+import 'package:http/http.dart' as http;
 
 class LocationDetailsPage extends StatefulWidget {
   final String? selectedProvince;
@@ -25,35 +28,40 @@ class LocationDetailsPage extends StatefulWidget {
 
 class _LocationDetailsPageState extends State<LocationDetailsPage> {
   final _formKey = GlobalKey<FormState>();
+  final _cityIdController = TextEditingController();
   final _deliveryStreetController = TextEditingController();
   final _areaNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _houseNumberController = TextEditingController();
-
-  String _addressUsageOption = 'Permanent';
-  String? _locationImagePath;
+  final _latitudeController = TextEditingController();
+  final _longitudeController = TextEditingController();
+  final _usageOptionController = TextEditingController();
+  int _addressTypeInt = 0;
   bool _isDefault = false;
+  File? _imageFile;
+  final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
   String? _authToken;
-
-  // Mock coordinates for provinces (in a real app, you'd get these from a map picker)
-  final Map<String, Map<String, double>> _provinceCoordinates = {
-    'KIGALI': {'lat': -1.9441, 'lng': 30.0619},
-    'MUSANZE': {'lat': -1.4769, 'lng': 29.6333},
-    'RUBAVU': {'lat': -1.6792, 'lng': 29.2598},
-    'RUSIZI': {'lat': -2.4889, 'lng': 28.9203},
-  };
+  String? _customerId;
 
   @override
   void initState() {
     super.initState();
     _loadUserToken();
+    _loadCustomerId();
     _initializeFields();
   }
 
   Future<void> _loadUserToken() async {
     final prefs = await SharedPreferences.getInstance();
     _authToken = prefs.getString('auth_token');
+  }
+
+  Future<void> _loadCustomerId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _customerId = prefs.getString('customer_id');
+    });
   }
 
   void _initializeFields() {
@@ -67,38 +75,54 @@ class _LocationDetailsPageState extends State<LocationDetailsPage> {
 
     if (widget.selectedProvince != null) {
       _areaNameController.text = widget.selectedProvince!;
-      _deliveryStreetController.text = 'Street address in ${widget.selectedProvince}';
+      _deliveryStreetController.text =
+          'Street address in ${widget.selectedProvince}';
     }
   }
 
   @override
   void dispose() {
+    _cityIdController.dispose();
     _deliveryStreetController.dispose();
     _areaNameController.dispose();
     _contactNumberController.dispose();
     _houseNumberController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
+    _usageOptionController.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
-    // Simulate image picker - in a real app, use image_picker package
-    setState(() {
-      _locationImagePath = 'selected_image.jpg';
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Image selected successfully!'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    final picked = await _picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() {
+        _imageFile = File(picked.path);
+      });
+    }
   }
 
   Future<void> _handleCreateOrUpdateLocation() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_authToken == null) {
-      _showErrorMessage('Authentication required. Please login again.');
+    final token = _authToken ?? 'YOUR_AUTH_TOKEN';
+    final customerId = int.tryParse(_customerId ?? '');
+    final cityId = int.tryParse(_cityIdController.text);
+    final street = _deliveryStreetController.text;
+    final areaName = _areaNameController.text;
+    final houseNumber = _houseNumberController.text;
+    final localContact = _contactNumberController.text;
+    final latitude = double.tryParse(_latitudeController.text);
+    final longitude = double.tryParse(_longitudeController.text);
+    final usageOption = _usageOptionController.text;
+
+    if (customerId == null ||
+        cityId == null ||
+        latitude == null ||
+        longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please fill all required fields correctly.')),
+      );
       return;
     }
 
@@ -107,75 +131,58 @@ class _LocationDetailsPageState extends State<LocationDetailsPage> {
     });
 
     try {
-      // Get coordinates (in a real app, you'd get these from map picker)
-      double lat, lng;
-      
-      if (widget.selectedProvince != null) {
-        final coords = _provinceCoordinates[widget.selectedProvince];
-        lat = coords?['lat'] ?? -1.9441;
-        lng = coords?['lng'] ?? 30.0619;
-      } else {
-        // Default to Kigali coordinates
-        lat = -1.9441;
-        lng = 30.0619;
+      // Prepare query parameters
+      final queryParams = {
+        'customerId': customerId.toString(),
+        'cityId': cityId.toString(),
+        'street': street,
+        'areaName': areaName,
+        'houseNumber': houseNumber,
+        'localContactNumber': localContact,
+        'latitude': latitude.toString(),
+        'longitude': longitude.toString(),
+        'addressType':
+            _addressTypeInt == 0
+                ? 'HOME'
+                : _addressTypeInt == 1
+                ? 'WORK'
+                : 'OTHER',
+        'usageOption': usageOption,
+        'isDefault': _isDefault.toString(),
+      };
+
+      // Create URI
+      final uri = Uri.parse(
+        'http://167.235.155.3:8085/api/locations/createAddresses',
+      ).replace(queryParameters: queryParams);
+
+      // Create request
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll({'Authorization': 'Bearer $token'});
+
+      // Add image file if available
+      if (_imageFile != null) {
+        final imageMultipart = await http.MultipartFile.fromPath(
+          'image',
+          _imageFile!.path,
+        );
+        request.files.add(imageMultipart);
       }
 
-      final name = _areaNameController.text.trim();
-      final address = _deliveryStreetController.text.trim();
-      final phone = _contactNumberController.text.trim();
+      // Send request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
-      if (widget.editLocation != null) {
-        // Update existing location
-        final response = await UserApi.updateUserLocation(
-          token: _authToken!,
-          locationId: widget.editLocation!.name, // Using name as ID for now
-          name: name,
-          address: address,
-          lat: lat,
-          lng: lng,
-          phone: phone.isEmpty ? null : phone,
-          isDefault: _isDefault,
-        );
+      print('🌐 Create Address Response:');
+      print('   - Status Code: ${response.statusCode}');
+      print('   - Body: ${response.body}');
 
-        if (response.success) {
-          _showSuccessMessage('Location updated successfully!');
-          widget.onLocationUpdated?.call();
-          Navigator.pop(context);
-        } else {
-          _showErrorMessage(response.message);
-        }
+      if (response.statusCode == 200) {
+        _showSuccessMessage('Location created successfully!');
+        widget.onLocationUpdated?.call();
+        Navigator.pop(context);
       } else {
-        // Create new location
-        final response = await UserApi.addUserLocation(
-          token: _authToken!,
-          name: name,
-          address: address,
-          lat: lat,
-          lng: lng,
-          phone: phone.isEmpty ? null : phone,
-          isDefault: _isDefault,
-        );
-
-        if (response.success) {
-          _showSuccessMessage('Location created successfully!');
-          widget.onLocationUpdated?.call();
-          
-          // Navigate based on context
-          if (widget.onLocationUpdated != null) {
-            Navigator.pop(context);
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => HomePage(
-                  selectedLocation: name,
-                ),
-              ),
-            );
-          }
-        } else {
-          _showErrorMessage(response.message);
-        }
+        _showErrorMessage('Failed to create location. Please try again.');
       }
     } catch (e) {
       print('❌ Error creating/updating location: $e');
@@ -189,359 +196,170 @@ class _LocationDetailsPageState extends State<LocationDetailsPage> {
 
   void _showErrorMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
     );
   }
 
   void _showSuccessMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.primary,
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.primary),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.editLocation != null;
-    
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.search, color: Colors.white, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              widget.selectedProvince ?? 'Search Location',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.more_horiz, color: Colors.black),
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            Text(
-              isEditing ? 'Edit Location' : 'Pick Delivery location',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppColors.onBackground,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Form
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Area name
-                      CustomTextField(
-                        label: 'Location Name',
-                        hintText: 'Enter location name',
-                        controller: _areaNameController,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Location name is required';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Delivery street
-                      CustomTextField(
-                        label: 'Delivery Address',
-                        hintText: 'Enter complete address',
-                        controller: _deliveryStreetController,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Delivery address is required';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Local contact number
-                      CustomTextField(
-                        label: 'Contact Number (Optional)',
-                        hintText: 'Enter contact number',
-                        controller: _contactNumberController,
-                        keyboardType: TextInputType.phone,
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      const Text(
-                        "If you don't have local number use: hotel, house keeper, guard etc.",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // House number
-                      CustomTextField(
-                        label: 'House/Building Number (Optional)',
-                        hintText: 'Building or house number',
-                        controller: _houseNumberController,
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Set as default location
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.inputBorder),
-                        ),
-                        child: Row(
-                          children: [
-                            Checkbox(
-                              value: _isDefault,
-                              onChanged: (value) {
-                                setState(() {
-                                  _isDefault = value ?? false;
-                                });
-                              },
-                              activeColor: AppColors.primary,
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Text(
-                                'Set as default location',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.onBackground,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Address Usage Option
-                      const Text(
-                        'Address Usage Option:',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.onBackground,
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _addressUsageOption = 'Permanent';
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _addressUsageOption == 'Permanent'
-                                        ? AppColors.primary
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  child: Text(
-                                    'Permanent',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: _addressUsageOption == 'Permanent'
-                                          ? Colors.white
-                                          : AppColors.textSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _addressUsageOption = 'Temporary';
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _addressUsageOption == 'Temporary'
-                                        ? AppColors.primary
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  child: Text(
-                                    'Temporary',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: _addressUsageOption == 'Temporary'
-                                          ? Colors.white
-                                          : AppColors.textSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Location Picture
-                      const Text(
-                        'Location Picture (Optional):',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.onBackground,
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      GestureDetector(
-                        onTap: _pickImage,
-                        child: Container(
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.inputBorder),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Text(
-                                  _locationImagePath != null
-                                      ? 'Image selected'
-                                      : 'Add Location Picture',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: _locationImagePath != null
-                                        ? AppColors.onBackground
-                                        : AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 40),
-
-                      // Create/Update Button
-                      CustomButton(
-                        text: isEditing ? 'Update Location' : 'Create Location',
-                        onPressed: _isLoading ? null : _handleCreateOrUpdateLocation,
-                        isLoading: _isLoading,
-                      ),
-                    ],
-                  ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 16),
+                _buildTextField(
+                  controller: _cityIdController,
+                  hintText: 'City ID',
+                  keyboardType: TextInputType.number,
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                 ),
-              ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: _deliveryStreetController,
+                  hintText: 'Street',
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: _areaNameController,
+                  hintText: 'Area Name',
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: _houseNumberController,
+                  hintText: 'House Number',
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: _contactNumberController,
+                  hintText: 'Local Contact Number',
+                  keyboardType: TextInputType.phone,
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: _latitudeController,
+                  hintText: 'Latitude',
+                  keyboardType: TextInputType.number,
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: _longitudeController,
+                  hintText: 'Longitude',
+                  keyboardType: TextInputType.number,
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  decoration: InputDecoration(labelText: 'Address Type'),
+                  value: _addressTypeInt,
+                  items: [
+                    DropdownMenuItem(value: 0, child: Text('HOME')),
+                    DropdownMenuItem(value: 1, child: Text('WORK')),
+                    DropdownMenuItem(value: 2, child: Text('OTHER')),
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      _addressTypeInt = val ?? 0;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: _usageOptionController,
+                  hintText: 'Usage Option',
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _isDefault,
+                      onChanged: (val) {
+                        setState(() {
+                          _isDefault = val ?? false;
+                        });
+                      },
+                    ),
+                    const Text('Is Default'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.image),
+                  label: Text(
+                    _imageFile == null ? 'Pick Image' : 'Image Selected',
+                  ),
+                  onPressed: _pickImage,
+                ),
+                if (_imageFile != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Image.file(_imageFile!, height: 80),
+                  ),
+                const SizedBox(height: 20),
+                CustomButton(
+                  text: 'Create Location',
+                  onPressed: _isLoading ? null : _handleCreateOrUpdateLocation,
+                  isLoading: _isLoading,
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    String? hintText,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: const TextStyle(color: AppColors.onBackground),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: const TextStyle(color: AppColors.textSecondary),
+        filled: true,
+        fillColor: AppColors.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: AppColors.inputBorder.withOpacity(0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: AppColors.inputBorder.withOpacity(0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.primary),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.error),
+        ),
+        contentPadding: const EdgeInsets.all(16),
       ),
     );
   }

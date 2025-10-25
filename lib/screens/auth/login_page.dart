@@ -71,6 +71,10 @@ class _LoginPageState extends State<LoginPage> {
 
       // Save user data (new backend structure)
       await prefs.setInt('user_id', loginResponse.id);
+      await prefs.setString(
+        'customer_id',
+        loginResponse.id.toString(),
+      ); // Save customer ID for location API
       await prefs.setString('user_name', loginResponse.fullName);
       await prefs.setString('user_email', loginResponse.email);
       await prefs.setString('user_role', loginResponse.role);
@@ -82,6 +86,7 @@ class _LoginPageState extends State<LoginPage> {
       await prefs.setBool('is_logged_in', true);
 
       print('✅ User data saved successfully');
+      print('   - Customer ID: ${loginResponse.id}');
     } catch (e) {
       print('❌ Error saving user data: $e');
     }

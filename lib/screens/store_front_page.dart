@@ -42,6 +42,17 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Test button
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/test-restaurants');
+                },
+                child: const Text('Test Restaurant API'),
+              ),
+            ),
+
             // Top bar with selected location
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -259,25 +270,17 @@ class StoreCard extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(16),
                   ),
-                  child:
-                      vendor.imageUrl == null
-                          ? Container(
-                            height: 90,
-                            color: AppColors.primary.withOpacity(0.1),
-                            child: const Center(
-                              child: Icon(
-                                Icons.store,
-                                size: 40,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          )
-                          : Image.network(
-                            vendor.imageUrl!,
-                            height: 90,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
+                  child: Container(
+                    height: 90,
+                    color: AppColors.primary.withOpacity(0.1),
+                    child: const Center(
+                      child: Icon(
+                        Icons.store,
+                        size: 40,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
                 ),
                 Positioned(
                   top: 8,
@@ -288,7 +291,7 @@ class StoreCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: vendor.isOpen == true ? Colors.green : Colors.red,
+                      color: vendor.active == true ? Colors.green : Colors.red,
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
@@ -298,7 +301,7 @@ class StoreCard extends StatelessWidget {
                       ],
                     ),
                     child: Text(
-                      vendor.isOpen == true ? 'OPEN' : 'CLOSED',
+                      vendor.active == true ? 'OPEN' : 'CLOSED',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -316,7 +319,7 @@ class StoreCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    vendor.name ?? '',
+                    vendor.restaurantName ?? 'Unnamed Restaurant',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -336,7 +339,7 @@ class StoreCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          vendor.address ?? '',
+                          vendor.location ?? 'No location',
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
@@ -347,18 +350,43 @@ class StoreCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (vendor.location?.lat != null &&
-                      vendor.location?.lng != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        '(${vendor.location!.lat?.toStringAsFixed(4)}, ${vendor.location!.lng?.toStringAsFixed(4)})',
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.restaurant_menu,
+                        size: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        vendor.cuisineType ?? 'Various Cuisine',
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: AppColors.textSecondary,
                         ),
                       ),
-                    ),
+                      const Spacer(),
+                      if (vendor.rating != null)
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 14,
+                              color: Colors.amber,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              vendor.rating!.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),

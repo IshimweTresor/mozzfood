@@ -13,32 +13,26 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   email: json['email'] as String,
   role: json['role'] as String,
   isVerified: json['isVerified'] as bool?,
-  createdAt:
-      json['createdAt'] == null
-          ? null
-          : DateTime.parse(json['createdAt'] as String),
-  updatedAt:
-      json['updatedAt'] == null
-          ? null
-          : DateTime.parse(json['updatedAt'] as String),
-  location:
-      json['location'] == null
-          ? null
-          : Location.fromJson(json['location'] as Map<String, dynamic>),
-  savedLocations:
-      (json['savedLocations'] as List<dynamic>?)
-          ?.map((e) => SavedLocation.fromJson(e as Map<String, dynamic>))
-          .toList(),
-  locationPreferences:
-      json['locationPreferences'] == null
-          ? null
-          : LocationPreferences.fromJson(
-            json['locationPreferences'] as Map<String, dynamic>,
-          ),
-  roleHistory:
-      (json['roleHistory'] as List<dynamic>?)
-          ?.map((e) => RoleHistory.fromJson(e as Map<String, dynamic>))
-          .toList(),
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
+  updatedAt: json['updatedAt'] == null
+      ? null
+      : DateTime.parse(json['updatedAt'] as String),
+  location: json['location'] == null
+      ? null
+      : Location.fromJson(json['location'] as Map<String, dynamic>),
+  savedLocations: (json['savedLocations'] as List<dynamic>?)
+      ?.map((e) => SavedLocation.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  locationPreferences: json['locationPreferences'] == null
+      ? null
+      : LocationPreferences.fromJson(
+          json['locationPreferences'] as Map<String, dynamic>,
+        ),
+  roleHistory: (json['roleHistory'] as List<dynamic>?)
+      ?.map((e) => RoleHistory.fromJson(e as Map<String, dynamic>))
+      .toList(),
 );
 
 Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
@@ -64,11 +58,11 @@ SavedLocation _$SavedLocationFromJson(Map<String, dynamic> json) =>
       lat: (json['lat'] as num).toDouble(),
       lng: (json['lng'] as num).toDouble(),
       phone: json['phone'] as String?,
+      imageUrl: json['imageUrl'] as String?,
       isDefault: json['isDefault'] as bool?,
-      createdAt:
-          json['createdAt'] == null
-              ? null
-              : DateTime.parse(json['createdAt'] as String),
+      createdAt: json['createdAt'] == null
+          ? null
+          : DateTime.parse(json['createdAt'] as String),
     );
 
 Map<String, dynamic> _$SavedLocationToJson(SavedLocation instance) =>
@@ -79,6 +73,7 @@ Map<String, dynamic> _$SavedLocationToJson(SavedLocation instance) =>
       'lat': instance.lat,
       'lng': instance.lng,
       'phone': instance.phone,
+      'imageUrl': instance.imageUrl,
       'isDefault': instance.isDefault,
       'createdAt': instance.createdAt?.toIso8601String(),
     };
@@ -112,10 +107,9 @@ RoleHistory _$RoleHistoryFromJson(Map<String, dynamic> json) => RoleHistory(
   previousRole: json['previousRole'] as String?,
   newRole: json['newRole'] as String?,
   changedBy: json['changedBy'] as String?,
-  changedAt:
-      json['changedAt'] == null
-          ? null
-          : DateTime.parse(json['changedAt'] as String),
+  changedAt: json['changedAt'] == null
+      ? null
+      : DateTime.parse(json['changedAt'] as String),
   reason: json['reason'] as String?,
 );
 

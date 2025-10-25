@@ -11,12 +11,9 @@ RegisterResponse _$RegisterResponseFromJson(Map<String, dynamic> json) =>
       success: json['success'] as bool,
       message: json['message'] as String,
       requiresVerification: json['requiresVerification'] as bool,
-      data:
-          json['data'] == null
-              ? null
-              : RegisteredUserData.fromJson(
-                json['data'] as Map<String, dynamic>,
-              ),
+      data: json['data'] == null
+          ? null
+          : RegisteredUserData.fromJson(json['data'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$RegisterResponseToJson(RegisterResponse instance) =>

@@ -13,9 +13,31 @@ class UserLocationsResponse {
     required this.preferences,
   });
 
-  factory UserLocationsResponse.fromJson(Map<String, dynamic> json) => 
+  factory UserLocationsResponse.fromJson(Map<String, dynamic> json) =>
       _$UserLocationsResponseFromJson(json);
   Map<String, dynamic> toJson() => _$UserLocationsResponseToJson(this);
+}
+
+@JsonSerializable()
+class CustomerAddressesResponse {
+  final List<SavedLocation> addresses;
+
+  CustomerAddressesResponse({required this.addresses});
+
+  factory CustomerAddressesResponse.fromJson(Map<String, dynamic> json) =>
+      _$CustomerAddressesResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$CustomerAddressesResponseToJson(this);
+}
+
+@JsonSerializable()
+class SavedLocationResponse {
+  final SavedLocation address;
+
+  SavedLocationResponse({required this.address});
+
+  factory SavedLocationResponse.fromJson(Map<String, dynamic> json) =>
+      _$SavedLocationResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$SavedLocationResponseToJson(this);
 }
 
 @JsonSerializable()
@@ -32,7 +54,7 @@ class NearbyVendorsResponse {
     required this.count,
   });
 
-  factory NearbyVendorsResponse.fromJson(Map<String, dynamic> json) => 
+  factory NearbyVendorsResponse.fromJson(Map<String, dynamic> json) =>
       _$NearbyVendorsResponseFromJson(json);
   Map<String, dynamic> toJson() => _$NearbyVendorsResponseToJson(this);
 }
@@ -70,7 +92,7 @@ class VendorWithDistance {
     this.menuItems,
   });
 
-  factory VendorWithDistance.fromJson(Map<String, dynamic> json) => 
+  factory VendorWithDistance.fromJson(Map<String, dynamic> json) =>
       _$VendorWithDistanceFromJson(json);
   Map<String, dynamic> toJson() => _$VendorWithDistanceToJson(this);
 }
@@ -80,12 +102,9 @@ class SearchLocation {
   final double lat;
   final double lng;
 
-  SearchLocation({
-    required this.lat,
-    required this.lng,
-  });
+  SearchLocation({required this.lat, required this.lng});
 
-  factory SearchLocation.fromJson(Map<String, dynamic> json) => 
+  factory SearchLocation.fromJson(Map<String, dynamic> json) =>
       _$SearchLocationFromJson(json);
   Map<String, dynamic> toJson() => _$SearchLocationToJson(this);
 }
@@ -96,13 +115,9 @@ class VendorOwner {
   final String email;
   final String phone;
 
-  VendorOwner({
-    required this.name,
-    required this.email,
-    required this.phone,
-  });
+  VendorOwner({required this.name, required this.email, required this.phone});
 
-  factory VendorOwner.fromJson(Map<String, dynamic> json) => 
+  factory VendorOwner.fromJson(Map<String, dynamic> json) =>
       _$VendorOwnerFromJson(json);
   Map<String, dynamic> toJson() => _$VendorOwnerToJson(this);
 }
@@ -121,7 +136,7 @@ class MenuItem {
     required this.availability,
   });
 
-  factory MenuItem.fromJson(Map<String, dynamic> json) => 
+  factory MenuItem.fromJson(Map<String, dynamic> json) =>
       _$MenuItemFromJson(json);
   Map<String, dynamic> toJson() => _$MenuItemToJson(this);
 }

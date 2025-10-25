@@ -4,58 +4,80 @@ import '../models/vendor.model.dart';
 import '../response/api_response.dart';
 
 class VendorApi {
-  static const String baseUrl =
-      'https://food-delivery-backend-hazel.vercel.app/api/vendors';
+  static const String baseUrl = 'http://167.235.155.3:8085/api/restaurants';
 
   // Get all vendors (with optional filters)
-static Future<ApiResponse<List<Vendor>>> getAllVendors({
+  static Future<ApiResponse<List<Vendor>>> getAllVendors({
     int page = 1,
     int limit = 12,
     String? search,
-    bool? isOpen,
     double? lat,
     double? lng,
     double? radius,
     String? sortBy,
     String? sortOrder,
   }) async {
-    final queryParams = {
-      'page': page.toString(),
-      'limit': limit.toString(),
-      if (search != null) 'search': search,
-      if (isOpen != null) 'isOpen': isOpen.toString(),
-      if (lat != null) 'lat': lat.toString(),
-      if (lng != null) 'lng': lng.toString(),
-      if (radius != null) 'radius': radius.toString(),
-      if (sortBy != null) 'sortBy': sortBy,
-      if (sortOrder != null) 'sortOrder': sortOrder,
-    };
-    final uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);
-
     try {
-      final response = await http.get(uri);
+      final uri = Uri.parse('$baseUrl/getAllActiveRestaurants');
+      print('🌐 Fetching restaurants from: $uri');
+
+      // Add headers for standard JSON content type
+      final headers = {'Content-Type': 'application/json'};
+      final response = await http.get(uri, headers: headers);
       final data = jsonDecode(response.body);
-      print('Response data: $data');
-      if (response.statusCode == 200 && data['success'] == true) {
-        // FIX: extract vendors from data['data']['vendors']
-        final vendorsJson = data['data']?['vendors'] as List<dynamic>? ?? [];
-        final vendors = vendorsJson.map((v) => Vendor.fromJson(v)).toList();
+      print('📡 Response data: $data');
+
+      if (response.statusCode == 200) {
+        // The API returns restaurants directly as an array
+        final List<dynamic> vendorsJson = data; // data is already the array
+        print('📊 Processing ${vendorsJson.length} restaurants');
+
+        final vendors =
+            vendorsJson
+                .map(
+                  (v) => Vendor.fromJson({
+                    'restaurantId':
+                        v['restaurantId'] is String
+                            ? int.parse(v['restaurantId'])
+                            : v['restaurantId'],
+                    'restaurantName': v['restaurantName'],
+                    'location': v['location'],
+                    'cuisineType': v['cuisineType'],
+                    'email': v['email'],
+                    'phoneNumber': v['phoneNumber'],
+                    'description': v['description'],
+                    'rating': (v['rating'] ?? 0.0).toDouble(),
+                    'totalOrders': v['totalOrders'],
+                    'totalReviews': v['totalReviews'],
+                    'averagePreparationTime': v['averagePreparationTime'],
+                    'deliveryFee': v['deliveryFee']?.toDouble(),
+                    'minimumOrderAmount': v['minimumOrderAmount']?.toDouble(),
+                    'operatingHours': v['operatingHours'],
+                    'createdAt': v['createdAt'],
+                    'updatedAt': v['updatedAt'],
+                    'active': v['active'] ?? true,
+                  }),
+                )
+                .toList();
+
         return ApiResponse<List<Vendor>>(
           success: true,
-          message: data['message'],
+          message: 'Fetched restaurants successfully',
           data: vendors,
         );
       } else {
+        print('❌ Failed to fetch restaurants: ${response.statusCode}');
         return ApiResponse<List<Vendor>>(
           success: false,
-          message: data['message'] ?? 'Failed to fetch vendors',
+          message: data['message'] ?? 'Failed to fetch restaurants',
           data: [],
         );
       }
     } catch (e) {
+      print('❌ Error fetching restaurants: $e');
       return ApiResponse<List<Vendor>>(
         success: false,
-        message: e.toString(),
+        message: 'Network error: ${e.toString()}',
         data: [],
       );
     }
@@ -232,9 +254,10 @@ static Future<ApiResponse<List<Vendor>>> getAllVendors({
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
-        final vendors = (data['data']['vendors'] as List)
-            .map((e) => Vendor.fromJson(e))
-            .toList();
+        final vendors =
+            (data['data']['vendors'] as List)
+                .map((e) => Vendor.fromJson(e))
+                .toList();
         return ApiResponse<List<Vendor>>(
           success: true,
           message: data['message'],
