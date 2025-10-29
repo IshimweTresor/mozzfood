@@ -22,6 +22,11 @@ class CartProvider extends ChangeNotifier {
     return prefs.getString('auth_token');
   }
 
+  Future<String?> getCustomerId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('customer_id');
+  }
+
   Future<void> _loadCart() async {
     final prefs = await SharedPreferences.getInstance();
     final cartString = prefs.getString(_cartKey);
@@ -29,8 +34,9 @@ class CartProvider extends ChangeNotifier {
       final decoded = jsonDecode(cartString);
       _currentRestaurantId = decoded['restaurantId'] as int?;
       _currentRestaurantName = decoded['restaurantName'] as String?;
-      _items =
-          (decoded['items'] as List).map((e) => _CartItem.fromJson(e)).toList();
+      _items = (decoded['items'] as List)
+          .map((e) => _CartItem.fromJson(e))
+          .toList();
       notifyListeners();
     }
   }

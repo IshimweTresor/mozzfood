@@ -6,8 +6,9 @@ import 'payment_method_page.dart';
 import '../api/order.api.dart';
 import '../providers/cartproviders.dart';
 import '../models/user.model.dart';
-import '../models/order.model.dart'; // Ensure you import the correct OrderItem
-import 'orders_page.dart' hide OrderItem;
+import '../models/order.model.dart';
+import '../models/payment.model.dart';
+import 'orders_page.dart';
 import 'package:provider/provider.dart';
 
 class OrderSummaryPage extends StatefulWidget {
@@ -31,8 +32,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   final TextEditingController _instructionsController = TextEditingController();
   bool _isPaymentComplete = false;
   bool _isPlacingOrder = false;
-  String? _momoReferenceId;
   String? _orderId;
+  String? _paymentId;
   bool _isLoading = false;
 
   CartProvider get cartProvider => Provider.of<CartProvider>(context);
@@ -49,123 +50,160 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   Future<void> _initiateMomoPayment() async {
     setState(() => _isLoading = true);
 
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
-    final token = await cartProvider.getAuthToken();
-    if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Authentication token missing.')),
+    try {
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      final token = await cartProvider.getAuthToken();
+      final customerId = await cartProvider.getCustomerId();
+
+      if (token == null) {
+        throw Exception('Authentication token missing.');
+      }
+
+      if (customerId == null) {
+        throw Exception('Customer ID is missing.');
+      }
+
+      if (cartProvider.currentRestaurantId == null) {
+        throw Exception('Restaurant ID is missing.');
+      }
+
+      // Create the order first
+      final orderResponse = await OrderApi.createOrder(
+        token: token,
+        customerId: int.parse(customerId),
+        restaurantId: cartProvider.currentRestaurantId!,
+        items: cartProvider.items
+            .map(
+              (cartItem) => OrderItem(
+                itemId: cartItem.item,
+                quantity: cartItem.quantity,
+                specialInstructions: _instructionsController.text,
+              ),
+            )
+            .toList(),
+        deliveryAddress: widget.selectedLocation?.address ?? "Unknown Location",
+        latitude: widget.selectedLocation?.lat ?? 0,
+        longitude: widget.selectedLocation?.lng ?? 0,
+        specialInstructions: _instructionsController.text,
       );
-      setState(() => _isLoading = false);
-      return;
-    }
 
-    final formattedPhone = widget.selectedNumber.startsWith('0')
-        ? '250${widget.selectedNumber.substring(1)}'
-        : widget.selectedNumber;
+      if (!orderResponse.success || orderResponse.data == null) {
+        throw Exception(orderResponse.message);
+      }
 
-    final response = await OrderApi.initiateMomoPayment(
-      token: token,
-      restaurantId: cartProvider.currentRestaurantId!,
-      items: cartProvider.items
-          .map<OrderItem>(
-            (cartItem) =>
-                OrderItem(itemId: cartItem.item, quantity: cartItem.quantity),
-          )
-          .toList(),
-      address: widget.selectedLocation?.address ?? "Unknown Location",
-      latitude: widget.selectedLocation?.lat ?? 0,
-      longitude: widget.selectedLocation?.lng ?? 0,
-      phone: formattedPhone,
-    );
+      final order = orderResponse.data!;
+      setState(() => _orderId = order.id);
 
-    setState(() => _isLoading = false);
+      // Format phone number for MTN MoMo (ensure it starts with 250)
+      final formattedPhone = widget.selectedNumber.startsWith('0')
+          ? '250${widget.selectedNumber.substring(1)}'
+          : widget.selectedNumber;
 
-    if (!response.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response.message != null ? response.message! : 'Error')),
+      // Create payment record
+      final paymentResponse = await OrderApi.createPayment(
+        token: token,
+        orderId: _orderId!,
+        paymentMethod: 'momo',
+        amount: order.totalPrice,
+        phone: formattedPhone,
       );
-      return;
-    }
 
-    // Immediately navigate to Orders page after order is created (payment pending)
-    if (response.success && response.data != null) {
-      print("Order created: ${response.data!.id}");
-      print("MoMo Ref: ${response.referenceId}"); // 👈 now works
-      final order = response.data!;
+      if (!paymentResponse.success || paymentResponse.data == null) {
+        throw Exception(paymentResponse.message);
+      }
+
       setState(() {
-        _orderId = order.id; // save order id
-        _momoReferenceId = response.referenceId; // save MoMo reference
+        _paymentId = paymentResponse.data!.id;
+        _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Order created. Waiting for payment approval.'),
-        ),
-      );
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Payment request sent. Please check your phone for the MTN MOMO prompt.',
+            ),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const OrdersPage()),
-        (route) => false,
-      );
+      // Start polling for payment status
+      await _pollPaymentStatus();
+    } catch (e) {
+      print('❌ Error during MoMo payment: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
+      setState(() => _isLoading = false);
     }
-
-    // Optionally, show a message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Order created. Waiting for payment approval.'),
-      ),
-    );
-
-    // Optionally, you can still poll for payment in the background if you want
   }
 
-  // Future<void> _pollMomoStatus() async {
-  //   if (_momoReferenceId == null) return;
+  Future<void> _pollPaymentStatus() async {
+    if (_paymentId == null) return;
 
-  //   int attempts = 0;
-  //   const int maxAttempts = 10;
+    int attempts = 0;
+    const maxAttempts = 20; // Poll for about 1 minute
+    const pollInterval = Duration(seconds: 3);
 
-  //   setState(() => _isLoading = true);
+    while (attempts < maxAttempts && mounted) {
+      try {
+        attempts++;
+        print('⏱ Checking payment status (Attempt $attempts/$maxAttempts)');
 
-  //   while (!_isPaymentComplete && attempts < maxAttempts) {
-  //     attempts++;
-  //     print('⏱ Checking MoMo payment status (Attempt $attempts)...');
+        final token = await cartProvider.getAuthToken();
+        if (token == null) {
+          throw Exception('Authentication token missing.');
+        }
 
-  //     final response = await OrderApi.checkMomoPaymentAndCreateOrder(
-  //       referenceId: _momoReferenceId!,
-  //     );
+        final response = await OrderApi.getPaymentById(
+          token: token,
+          paymentId: _paymentId!,
+        );
 
-  //     if (response.success && response.data != null) {
-  //       setState(() {
-  //         _isPaymentComplete = true;
-  //         _orderId = response.data!.id;
-  //       });
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         const SnackBar(
-  //           content: Text('Payment successful! You can place your order.'),
-  //         ),
-  //       );
-  //       break;
-  //     } else {
-  //       print(
-  //         '⏳ Payment not yet completed. Status: PENDING',
-  //       );
-  //     }
+        if (response.success && response.data != null) {
+          final payment = response.data!;
+          if (payment.status.toLowerCase() == 'paid') {
+            setState(() => _isPaymentComplete = true);
 
-  //     await Future.delayed(const Duration(seconds: 3));
-  //   }
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Payment successful! You can now place your order.',
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            }
+            return;
+          }
+        }
 
-  //   setState(() => _isLoading = false);
+        await Future.delayed(pollInterval);
+      } catch (e) {
+        print('❌ Error checking payment status: $e');
+      }
+    }
 
-  //   if (!_isPaymentComplete) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text('Payment not completed. Please try again.'),
-  //       ),
-  //     );
-  //   }
-  // }
+    if (mounted && !_isPaymentComplete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Payment status check timed out. Please check your MTN MoMo messages or try again.',
+          ),
+          duration: Duration(seconds: 5),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  // Polling logic moved to _pollPaymentStatus() method
 
   Future<void> _placeOrder() async {
     setState(() => _isPlacingOrder = true);
@@ -353,7 +391,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            cartProvider.currentRestaurantName ?? 'Select Restaurant',
+                            cartProvider.currentRestaurantName ??
+                                'Select Restaurant',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,

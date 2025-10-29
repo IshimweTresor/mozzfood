@@ -76,8 +76,13 @@ class DeliveryLocation {
 class OrderItem {
   final MenuItem itemId; // <- nested object, not string
   final int quantity;
+  final String? specialInstructions;
 
-  OrderItem({required this.itemId, required this.quantity});
+  OrderItem({
+    required this.itemId,
+    required this.quantity,
+    this.specialInstructions,
+  });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) =>
       _$OrderItemFromJson(json);

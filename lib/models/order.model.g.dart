@@ -71,9 +71,11 @@ Map<String, dynamic> _$DeliveryLocationToJson(DeliveryLocation instance) =>
 OrderItem _$OrderItemFromJson(Map<String, dynamic> json) => OrderItem(
   itemId: MenuItem.fromJson(json['itemId'] as Map<String, dynamic>),
   quantity: (json['quantity'] as num).toInt(),
+  specialInstructions: json['specialInstructions'] as String?,
 );
 
 Map<String, dynamic> _$OrderItemToJson(OrderItem instance) => <String, dynamic>{
   'itemId': instance.itemId.toJson(),
   'quantity': instance.quantity,
+  'specialInstructions': instance.specialInstructions,
 };

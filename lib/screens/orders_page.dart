@@ -27,22 +27,88 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Future<void> _fetchOrders() async {
-    setState(() => _isLoading = true);
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    if (token == null) {
-      setState(() => _isLoading = false);
-      return;
-    }
-    final response = await OrderApi.getOrders(token: token);
-    if (response.success && response.data != null) {
+    try {
       setState(() {
-        _orders = response.data!;
-        _isLoading = false;
+        _isLoading = true;
       });
-    } else {
-      setState(() => _isLoading = false);
-      // Optionally show error
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final customerId = prefs.getString('customer_id');
+
+      if (token == null || customerId == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please login to view orders')),
+          );
+        }
+        return;
+      }
+
+      print('🔄 Fetching orders...');
+      print('👤 Customer ID: $customerId');
+      print('🎫 Token: ${token.substring(0, 10)}...');
+
+      // Convert string customerId to integer
+      final customerIdInt = int.tryParse(customerId);
+      if (customerIdInt == null) {
+        throw Exception('Invalid customer ID format');
+      }
+
+      final response = await OrderApi.getCustomerOrders(
+        token: token,
+        customerId: customerIdInt.toString(),
+      );
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (response.success && response.data != null) {
+            // Filter orders based on selected status
+            _orders = response.data!.where((order) {
+              switch (_selectedStatus) {
+                case 'Processing':
+                  return [
+                    'PENDING',
+                    'PROCESSING',
+                    'PREPARING',
+                    'ON_THE_WAY',
+                  ].contains(order.orderStatus.toUpperCase());
+                case 'Completed':
+                  return order.orderStatus.toUpperCase() == 'DELIVERED';
+                case 'Failed':
+                  return order.orderStatus.toUpperCase() == 'CANCELLED';
+                default:
+                  return true;
+              }
+            }).toList();
+
+            print(
+              '📦 Found ${_orders.length} orders for status: $_selectedStatus',
+            );
+          } else {
+            print('❌ Error: ${response.message}');
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(response.message)));
+          }
+        });
+      }
+    } catch (e, stack) {
+      print('❌ Error loading orders: $e');
+      print('📚 Stack trace: $stack');
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading orders: $e')));
+      }
     }
   }
 
@@ -130,26 +196,23 @@ class _OrdersPageState extends State<OrdersPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color:
-                              _selectedTab == 'Order History'
-                                  ? AppColors.primary
-                                  : Colors.transparent,
+                          color: _selectedTab == 'Order History'
+                              ? AppColors.primary
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(25),
                           border: Border.all(
-                            color:
-                                _selectedTab == 'Order History'
-                                    ? AppColors.primary
-                                    : AppColors.inputBorder,
+                            color: _selectedTab == 'Order History'
+                                ? AppColors.primary
+                                : AppColors.inputBorder,
                           ),
                         ),
                         child: Text(
                           'Order History',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color:
-                                _selectedTab == 'Order History'
-                                    ? Colors.white
-                                    : AppColors.textSecondary,
+                            color: _selectedTab == 'Order History'
+                                ? Colors.white
+                                : AppColors.textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -167,26 +230,23 @@ class _OrdersPageState extends State<OrdersPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color:
-                              _selectedTab == 'Pickup History'
-                                  ? AppColors.primary
-                                  : Colors.transparent,
+                          color: _selectedTab == 'Pickup History'
+                              ? AppColors.primary
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(25),
                           border: Border.all(
-                            color:
-                                _selectedTab == 'Pickup History'
-                                    ? AppColors.primary
-                                    : AppColors.inputBorder,
+                            color: _selectedTab == 'Pickup History'
+                                ? AppColors.primary
+                                : AppColors.inputBorder,
                           ),
                         ),
                         child: Text(
                           'Pickup History',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color:
-                                _selectedTab == 'Pickup History'
-                                    ? Colors.white
-                                    : AppColors.textSecondary,
+                            color: _selectedTab == 'Pickup History'
+                                ? Colors.white
+                                : AppColors.textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -217,20 +277,18 @@ class _OrdersPageState extends State<OrdersPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color:
-                              _selectedStatus == 'Processing'
-                                  ? AppColors.primary
-                                  : Colors.transparent,
+                          color: _selectedStatus == 'Processing'
+                              ? AppColors.primary
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(25),
                         ),
                         child: Text(
                           'Processing',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color:
-                                _selectedStatus == 'Processing'
-                                    ? Colors.white
-                                    : AppColors.textSecondary,
+                            color: _selectedStatus == 'Processing'
+                                ? Colors.white
+                                : AppColors.textSecondary,
                             fontWeight: FontWeight.w500,
                             fontSize: 14,
                           ),
@@ -248,20 +306,18 @@ class _OrdersPageState extends State<OrdersPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color:
-                              _selectedStatus == 'Completed'
-                                  ? AppColors.primary
-                                  : Colors.transparent,
+                          color: _selectedStatus == 'Completed'
+                              ? AppColors.primary
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(25),
                         ),
                         child: Text(
                           'Completed',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color:
-                                _selectedStatus == 'Completed'
-                                    ? Colors.white
-                                    : AppColors.textSecondary,
+                            color: _selectedStatus == 'Completed'
+                                ? Colors.white
+                                : AppColors.textSecondary,
                             fontWeight: FontWeight.w500,
                             fontSize: 14,
                           ),
@@ -279,20 +335,18 @@ class _OrdersPageState extends State<OrdersPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color:
-                              _selectedStatus == 'Failed'
-                                  ? AppColors.primary
-                                  : Colors.transparent,
+                          color: _selectedStatus == 'Failed'
+                              ? AppColors.primary
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(25),
                         ),
                         child: Text(
                           'Failed',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color:
-                                _selectedStatus == 'Failed'
-                                    ? Colors.white
-                                    : AppColors.textSecondary,
+                            color: _selectedStatus == 'Failed'
+                                ? Colors.white
+                                : AppColors.textSecondary,
                             fontWeight: FontWeight.w500,
                             fontSize: 14,
                           ),
@@ -308,12 +362,11 @@ class _OrdersPageState extends State<OrdersPage> {
 
             // Content based on selected status and whether there are orders
             Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _getFilteredOrders().isEmpty
-                      ? _buildEmptyState()
-                      : _buildOrdersList(),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _getFilteredOrders().isEmpty
+                  ? _buildEmptyState()
+                  : _buildOrdersList(),
             ),
           ],
         ),
@@ -360,8 +413,9 @@ class _OrdersPageState extends State<OrdersPage> {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color:
-                            index % 2 == 0 ? AppColors.primary : Colors.white,
+                        color: index % 2 == 0
+                            ? AppColors.primary
+                            : Colors.white,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -495,7 +549,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       ),
                     ),
                     Text(
-                      'Lat: ${order.location.latitude ?? '-'}, Lng: ${order.location.longitude ?? '-'}',
+                      order.location.address,
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.onBackground,
@@ -535,9 +589,7 @@ class _OrdersPageState extends State<OrdersPage> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () {
-                      // TODO: Implement cancel order
-                    },
+                    onPressed: () => _cancelOrder(order),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.error),
                       shape: RoundedRectangleBorder(
@@ -553,9 +605,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Implement track order
-                    },
+                    onPressed: () => _trackOrder(order),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
@@ -577,9 +627,7 @@ class _OrdersPageState extends State<OrdersPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement reorder
-                },
+                onPressed: () => _reorder(order),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
@@ -674,4 +722,162 @@ class _OrdersPageState extends State<OrdersPage> {
   // Helper functions for trigonometry
   double _cos(double angle) => math.cos(angle);
   double _sin(double angle) => math.sin(angle);
+
+  void _trackOrder(Order order) {
+    // TODO: Navigate to order tracking page
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Order tracking will be available soon!')),
+    );
+  }
+
+  Future<void> _reorder(Order order) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please login to reorder')),
+          );
+        }
+        return;
+      }
+
+      // Create a new order with the same items
+      final customerId = int.tryParse(order.userId.id);
+      if (customerId == null) {
+        throw Exception('Invalid customer ID format');
+      }
+
+      final response = await OrderApi.createOrder(
+        token: token,
+        customerId: customerId,
+        restaurantId: order.restaurantId,
+        items: order.items,
+        deliveryAddress: order.location.address,
+        latitude: order.location.latitude,
+        longitude: order.location.longitude,
+      );
+
+      if (mounted) {
+        if (response.success && response.data != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Order placed successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Refresh the orders list
+          _fetchOrders();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error placing order: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelOrder(Order order) async {
+    try {
+      // Show confirmation dialog
+      final bool? shouldCancel = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Text(
+            'Cancel Order',
+            style: TextStyle(color: AppColors.onBackground),
+          ),
+          content: const Text(
+            'Are you sure you want to cancel this order?',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(
+                'No',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: const Text('Yes, Cancel'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldCancel != true) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please login to cancel orders')),
+          );
+        }
+        return;
+      }
+
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Cancelling order...')));
+      }
+
+      final response = await OrderApi.updateOrderStatus(
+        token: token,
+        orderId: order.id!,
+        status: 'cancelled',
+      );
+
+      if (mounted) {
+        if (response.success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Order cancelled successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Refresh the orders list
+          _fetchOrders();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error cancelling order: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 }
