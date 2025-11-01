@@ -153,7 +153,7 @@ class _LocationDetailsPageState extends State<LocationDetailsPage> {
 
       // Create URI
       final uri = Uri.parse(
-        'http://167.235.155.3:8085/api/locations/createAddresses',
+        'http://129.151.188.8:8085/api/locations/createAddresses',
       ).replace(queryParameters: queryParams);
 
       // Create request

@@ -6,7 +6,7 @@ import 'package:vuba/models/payment.model.dart';
 import 'package:vuba/response/api_response.dart';
 
 class OrderApi {
-  static const String baseUrl = 'http://167.235.155.3:8085';
+  static const String baseUrl = 'http://129.151.188.8:8085';
 
   static Map<String, String> _getHeaders({String? token}) {
     final headers = {'Content-Type': 'application/json'};
@@ -31,27 +31,71 @@ class OrderApi {
       print('📡 Response status: ${response.statusCode}');
       print('📡 Response body: ${response.body}');
 
-      final data = jsonDecode(response.body);
+      final dynamic data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        if (data['success'] == true) {
-          final ordersList = data['data'] as List;
-          final orders = ordersList.map((o) => Order.fromJson(o)).toList();
+        List<Order> orders = [];
+        String message = 'Orders fetched successfully';
 
-          print('✅ Found ${orders.length} orders');
-
+        if (data is List) {
+          // Case 1: Backend returns a direct list of orders (can be empty)
+          orders = data.map((o) => Order.fromJson(o)).toList();
+        } else if (data is Map<String, dynamic>) {
+          // Case 2: Backend returns a map with 'success' and 'data' fields
+          if (data['success'] == true) {
+            final ordersList = data['data'];
+            if (ordersList is List) {
+              orders = ordersList.map((o) => Order.fromJson(o)).toList();
+            } else if (ordersList == null) {
+              // 'data' field is null, treat as empty list
+              orders = [];
+            } else {
+              // 'data' field is not a list, log error and treat as empty
+              print('⚠️ Warning: data field is not a List: $ordersList');
+              message = 'Failed to parse orders data';
+            }
+            message = data['message'] ?? message;
+          } else {
+            // 'success' is false
+            message = data['message'] ?? 'Failed to fetch orders';
+            return ApiResponse<List<Order>>(
+              success: false,
+              message: message,
+              error: data['error'],
+            );
+          }
+        } else {
+          // Unexpected response format
+          print('⚠️ Warning: Unexpected response format: $data');
+          message = 'Unexpected response format from server';
           return ApiResponse<List<Order>>(
-            success: true,
-            message: data['message'] ?? 'Orders fetched successfully',
-            data: orders,
+            success: false,
+            message: message,
           );
         }
+
+        print('✅ Found ${orders.length} orders');
+        return ApiResponse<List<Order>>(
+          success: true,
+          message: message,
+          data: orders,
+        );
+      }
+
+      // Handle non-200 status codes or other failures
+      String errorMessage = 'Failed to fetch orders';
+      dynamic errorDetails;
+      if (data is Map<String, dynamic>) {
+        errorMessage = data['message'] ?? errorMessage;
+        errorDetails = data['error'];
+      } else if (data is String) {
+        errorMessage = data;
       }
 
       return ApiResponse<List<Order>>(
         success: false,
-        message: data['message'] ?? 'Failed to fetch orders',
-        error: data['error'],
+        message: errorMessage,
+        error: errorDetails,
       );
     } catch (e, stack) {
       print('❌ Error fetching orders: $e');
@@ -182,124 +226,6 @@ class OrderApi {
     }
   }
 
-  /// Initiate MoMo payment for an order
-  /// POST /api/payments/momo/initiate
-  static Future<ApiResponse<Order>> initiateMomoPayment({
-    required String token,
-    required int restaurantId,
-    required List<OrderItem> items,
-    required String address,
-    required double latitude,
-    required double longitude,
-    required String phone,
-  }) async {
-    try {
-      print('🔄 Initiating MoMo payment');
-      print('📱 Phone: $phone');
-      print('🏪 Restaurant ID: $restaurantId');
-      print('📍 Address: $address');
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/payments/momo/initiate'),
-        headers: _getHeaders(token: token),
-        body: jsonEncode({
-          'restaurantId': restaurantId,
-          'items': items
-              .map(
-                (i) => {
-                  'menuItemId': i.itemId.id,
-                  'quantity': i.quantity,
-                  'specialInstructions': i.specialInstructions,
-                },
-              )
-              .toList(),
-          'deliveryAddress': address,
-          'location': {'latitude': latitude, 'longitude': longitude},
-          'phone': phone,
-        }),
-      );
-
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        if (data['success'] == true) {
-          final order = Order.fromJson(data['data']);
-          final referenceId = data['referenceId'] as String?;
-          print('✅ MoMo payment initiated');
-          print('📱 MoMo Reference ID: $referenceId');
-
-          return ApiResponse<Order>(
-            success: true,
-            message: data['message'] ?? 'Payment initiated successfully',
-            data: order,
-            referenceId: referenceId,
-          );
-        }
-      }
-
-      return ApiResponse<Order>(
-        success: false,
-        message: data['message'] ?? 'Failed to initiate payment',
-        error: data['error'],
-      );
-    } catch (e, stack) {
-      print('❌ Error initiating MoMo payment: $e');
-      print('📚 Stack trace: $stack');
-      return ApiResponse<Order>(
-        success: false,
-        message: 'Network error: ${e.toString()}',
-      );
-    }
-  }
-
-  /// Check MoMo payment status
-  /// GET /api/payments/momo/status/{referenceId}
-  static Future<ApiResponse<Order>> checkMomoPaymentStatus({
-    required String referenceId,
-  }) async {
-    try {
-      print('🔄 Checking MoMo payment status');
-      print('📱 Reference ID: $referenceId');
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/payments/momo/status/$referenceId'),
-        headers: _getHeaders(),
-      );
-
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        if (data['success'] == true) {
-          final order = Order.fromJson(data['data']);
-          print('✅ Payment status checked successfully');
-          return ApiResponse<Order>(
-            success: true,
-            message: data['message'] ?? 'Payment status checked successfully',
-            data: order,
-          );
-        }
-      }
-
-      return ApiResponse<Order>(
-        success: false,
-        message: data['message'] ?? 'Failed to check payment status',
-        error: data['error'],
-      );
-    } catch (e, stack) {
-      print('❌ Error checking MoMo payment status: $e');
-      print('📚 Stack trace: $stack');
-      return ApiResponse<Order>(
-        success: false,
-        message: 'Network error: ${e.toString()}',
-      );
-    }
-  }
 
   /// Get payment by ID
   /// GET /api/payments/getPaymentById/{id}
@@ -528,8 +454,8 @@ class OrderApi {
     try {
       print('🔄 Updating payment status');
       print('💳 Payment ID: $paymentId');
-      print('📊 New Status: $status');
-      if (transactionId != null) print('🔢 Transaction ID: $transactionId');
+      print('� New Status: $status');
+      if (transactionId != null) print('� Transaction ID: $transactionId');
 
       final body = {
         'status': status,
@@ -632,7 +558,7 @@ class OrderApi {
   }) async {
     try {
       print('🔄 Updating order status');
-      print('📦 Order ID: $orderId');
+      print('� Order ID: $orderId');
       print('📊 New Status: $status');
 
       final response = await http.put(

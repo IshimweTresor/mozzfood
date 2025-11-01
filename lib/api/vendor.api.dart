@@ -4,7 +4,7 @@ import '../models/vendor.model.dart';
 import '../response/api_response.dart';
 
 class VendorApi {
-  static const String baseUrl = 'http://167.235.155.3:8085/api/restaurants';
+  static const String baseUrl = 'http://129.151.188.8:8085/api/restaurants';
 
   // Get all vendors (with optional filters)
   static Future<ApiResponse<List<Vendor>>> getAllVendors({

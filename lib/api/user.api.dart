@@ -14,7 +14,7 @@ class UserApi {
   getCustomerAddresses({required String token, required int customerId}) async {
     try {
       final uri = Uri.parse(
-        'http://167.235.155.3:8085/api/locations/getCustomerAddresses',
+        'http://129.151.188.8:8085/api/locations/getCustomerAddresses',
       ).replace(queryParameters: {'customerId': customerId.toString()});
 
       final response = await http.get(uri, headers: _getHeaders(token: token));
@@ -79,9 +79,9 @@ class UserApi {
   // For Android Emulator, use 10.0.2.2 instead of localhost
   // For real device on same network, use your computer's local IP (e.g., 192.168.x.x)
   // For remote server, use the actual server IP/domain
-  static const String baseUrl = 'http://167.235.155.3:8085/api/auth';
+  static const String baseUrl = 'http://129.151.188.8:8085/api/auth';
   static const String locationBaseUrl =
-      'http://167.235.155.3:8085/api/locations';
+      'http://129.151.188.8:8085/api/locations';
 
   // Alternative: Use this if backend is on your local machine
   // static const String baseUrl = 'http://10.0.2.2:8085/api/auth'; // For Android Emulator
@@ -228,12 +228,12 @@ class UserApi {
       print('📱 Phone: $phoneNumber');
       print('👤 Name: $fullName');
       print('🌍 Location: $location');
-      print('🔗 Endpoint: http://167.235.155.3:8085/api/customers/register');
+      print('🔗 Endpoint: http://129.151.188.8:8085/api/customers/register');
       print('🕒 Starting registration POST request...');
       final startTime = DateTime.now();
 
       final response = await http.post(
-        Uri.parse('http://167.235.155.3:8085/api/customers/register'),
+        Uri.parse('http://129.151.188.8:8085/api/customers/register'),
         headers: _getHeaders(),
         body: jsonEncode({
           'fullNames': fullName,

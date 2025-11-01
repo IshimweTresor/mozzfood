@@ -1,15 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'address_book_page.dart';
-import 'payment_method_page.dart';
-import '../api/order.api.dart';
-import '../providers/cartproviders.dart';
-import '../models/user.model.dart';
-import '../models/order.model.dart';
-import '../models/payment.model.dart';
-import 'orders_page.dart';
 import 'package:provider/provider.dart';
+
+import '../api/order.api.dart';
+import '../models/order.model.dart';
+import '../models/user.model.dart';
+import '../providers/cartproviders.dart';
+import 'address_book_page.dart';
+import 'orders_page.dart';
+import 'payment_method_page.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final String paymentMethod;
@@ -42,14 +42,25 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.paymentMethod == 'MOMO by MTN') {
-      _initiateMomoPayment();
+    // For non-MOMO payments, we can consider the payment "complete" for placing the order
+    // or implement specific payment initiation for other methods if needed.
+    // For now, assuming direct order placement for non-MOMO.
+    if (widget.paymentMethod != 'MOMO by MTN') {
+      _isPaymentComplete = true;
     }
   }
 
-  Future<void> _initiateMomoPayment() async {
-    setState(() => _isLoading = true);
+  Future<void> _placeOrder() async {
+    if (!_isPaymentComplete) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment not completed.')),
+        );
+      }
+      return;
+    }
 
+    setState(() => _isPlacingOrder = true);
     try {
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
       final token = await cartProvider.getAuthToken();
@@ -67,7 +78,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         throw Exception('Restaurant ID is missing.');
       }
 
-      // Create the order first
+      // Create the order
       final orderResponse = await OrderApi.createOrder(
         token: token,
         customerId: int.parse(customerId),
@@ -94,18 +105,13 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       final order = orderResponse.data!;
       setState(() => _orderId = order.id);
 
-      // Format phone number for MTN MoMo (ensure it starts with 250)
-      final formattedPhone = widget.selectedNumber.startsWith('0')
-          ? '250${widget.selectedNumber.substring(1)}'
-          : widget.selectedNumber;
-
-      // Create payment record
+      // Process payment for the created order (assuming a generic process for now)
       final paymentResponse = await OrderApi.createPayment(
         token: token,
         orderId: _orderId!,
-        paymentMethod: 'momo',
+        paymentMethod: widget.paymentMethod, // Use selected payment method
         amount: order.totalPrice,
-        phone: formattedPhone,
+        phone: widget.selectedNumber, // Pass phone if available
       );
 
       if (!paymentResponse.success || paymentResponse.data == null) {
@@ -114,104 +120,33 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
       setState(() {
         _paymentId = paymentResponse.data!.id;
-        _isLoading = false;
       });
 
-      // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Payment request sent. Please check your phone for the MTN MOMO prompt.',
-            ),
-            duration: const Duration(seconds: 5),
+            content: Text('Order placed and payment processed successfully!'),
+            backgroundColor: Colors.green,
           ),
         );
       }
 
-      // Start polling for payment status
-      await _pollPaymentStatus();
+      // Navigate to OrdersPage on successful order creation and payment
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const OrdersPage()),
+        (route) => false,
+      );
     } catch (e) {
-      print('❌ Error during MoMo payment: $e');
+      print('❌ Error placing order: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+        ).showSnackBar(SnackBar(content: Text('Error placing order: ${e.toString()}')));
       }
-      setState(() => _isLoading = false);
+    } finally {
+      setState(() => _isPlacingOrder = false);
     }
-  }
-
-  Future<void> _pollPaymentStatus() async {
-    if (_paymentId == null) return;
-
-    int attempts = 0;
-    const maxAttempts = 20; // Poll for about 1 minute
-    const pollInterval = Duration(seconds: 3);
-
-    while (attempts < maxAttempts && mounted) {
-      try {
-        attempts++;
-        print('⏱ Checking payment status (Attempt $attempts/$maxAttempts)');
-
-        final token = await cartProvider.getAuthToken();
-        if (token == null) {
-          throw Exception('Authentication token missing.');
-        }
-
-        final response = await OrderApi.getPaymentById(
-          token: token,
-          paymentId: _paymentId!,
-        );
-
-        if (response.success && response.data != null) {
-          final payment = response.data!;
-          if (payment.status.toLowerCase() == 'paid') {
-            setState(() => _isPaymentComplete = true);
-
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Payment successful! You can now place your order.',
-                  ),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 5),
-                ),
-              );
-            }
-            return;
-          }
-        }
-
-        await Future.delayed(pollInterval);
-      } catch (e) {
-        print('❌ Error checking payment status: $e');
-      }
-    }
-
-    if (mounted && !_isPaymentComplete) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Payment status check timed out. Please check your MTN MoMo messages or try again.',
-          ),
-          duration: Duration(seconds: 5),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
-  }
-
-  // Polling logic moved to _pollPaymentStatus() method
-
-  Future<void> _placeOrder() async {
-    setState(() => _isPlacingOrder = true);
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const OrdersPage()),
-      (route) => false,
-    );
   }
 
   @override
@@ -506,13 +441,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               child: Column(
                 children: [
                   GestureDetector(
-                    onTap: _isPaymentComplete && !_isPlacingOrder
-                        ? _placeOrder
-                        : null,
+                    onTap: !_isPlacingOrder ? _placeOrder : null,
                     child: Opacity(
-                      opacity: _isPaymentComplete && !_isPlacingOrder
-                          ? 1.0
-                          : 0.5,
+                      opacity: !_isPlacingOrder ? 1.0 : 0.5,
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(2),
@@ -549,11 +480,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                                 ),
                               const SizedBox(width: 8),
                               Text(
-                                _isPaymentComplete
-                                    ? 'PLACE ORDER'
-                                    : (_isLoading
-                                          ? 'Requesting Payment...'
-                                          : 'Waiting for Payment...'),
+                                'PLACE ORDER',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,

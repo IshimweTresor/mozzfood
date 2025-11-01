@@ -406,7 +406,7 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                                               'usageOption': usageOption,
                                               'isDefault': isDefault.toString(),
                                             };
-                                            final uri = Uri.parse('http://167.235.155.3:8085/api/locations/createAddresses').replace(queryParameters: queryParams);
+                                            final uri = Uri.parse('http://129.151.188.8:8085/api/locations/createAddresses').replace(queryParameters: queryParams);
                                             final request = http.MultipartRequest('POST', uri);
                                             request.headers.addAll({'Authorization': 'Bearer $token'});
                                             if (imagePath != null && imagePath!.isNotEmpty) {
