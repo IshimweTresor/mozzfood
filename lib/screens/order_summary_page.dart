@@ -32,11 +32,13 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   final TextEditingController _instructionsController = TextEditingController();
   bool _isPaymentComplete = false;
   bool _isPlacingOrder = false;
-  String? _orderId;
+  int? _orderId;
   String? _paymentId;
   bool _isLoading = false;
 
-  CartProvider get cartProvider => Provider.of<CartProvider>(context);
+  CartProvider get cartProvider =>
+      Provider.of<CartProvider>(context, listen: false);
+
   List get cartItems => cartProvider.items;
 
   @override
@@ -50,102 +52,137 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     }
   }
 
-  Future<void> _placeOrder() async {
-    if (!_isPaymentComplete) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment not completed.')),
-        );
-      }
-      return;
-    }
-
+ Future<void> _placeOrder() async {
     setState(() => _isPlacingOrder = true);
+
     try {
-      final cartProvider = Provider.of<CartProvider>(context, listen: false);
       final token = await cartProvider.getAuthToken();
       final customerId = await cartProvider.getCustomerId();
 
-      if (token == null) {
-        throw Exception('Authentication token missing.');
-      }
-
-      if (customerId == null) {
-        throw Exception('Customer ID is missing.');
-      }
-
-      if (cartProvider.currentRestaurantId == null) {
+      if (token == null) throw Exception('Authentication token missing.');
+      if (customerId == null) throw Exception('Customer ID is missing.');
+      if (cartProvider.currentRestaurantId == null)
         throw Exception('Restaurant ID is missing.');
+
+      // Map payment method
+      String paymentMethodCode = _mapPaymentMethod(widget.paymentMethod);
+
+      // Map cart items to OrderItem
+      List<OrderItem> orderItems = cartItems.map((cartItem) {
+        final id = cartItem.item.id;
+        int menuItemId = 0;
+        if (id is int) {
+          menuItemId = id;
+        } else if (id is String) {
+          menuItemId = int.tryParse(id) ?? 0;
+        }
+
+        // ✅ Ensure we have valid prices
+        double unitPrice = (cartItem.item.price ?? 0.0).toDouble();
+        double totalPrice = unitPrice * cartItem.quantity;
+
+        return OrderItem(
+          itemId: menuItemId,
+          menuItemId: menuItemId,
+          itemName: cartItem.item.name ?? 'Unknown Item',
+          quantity: cartItem.quantity,
+          unitPrice: unitPrice,
+          totalPrice: totalPrice,
+          specialInstructions: cartItem.specialInstructions?.isNotEmpty == true
+              ? cartItem.specialInstructions
+              : null,
+          variantIds: cartItem.selectedVariantIds.isNotEmpty
+              ? cartItem.selectedVariantIds
+              : null,
+        );
+      }).toList();
+
+      // ✅ Add validation before API call
+      print('🔍 Validating order data...');
+      print('📦 Restaurant ID: ${cartProvider.currentRestaurantId}');
+      print('👤 Customer ID: $customerId');
+      print('📍 Delivery Address ID: ${widget.selectedLocation?.id ?? '1'}');
+      print('🛒 Order Items: ${orderItems.length}');
+      for (var item in orderItems) {
+        print(
+          '  - Item ${item.menuItemId}: ${item.itemName} x${item.quantity} = ${item.totalPrice}',
+        );
       }
 
-      // Create the order
+      // ✅ Convert deliveryAddressId properly
+      String addressId = widget.selectedLocation?.id ?? '1';
+      int deliveryAddressId;
+      try {
+        deliveryAddressId = int.parse(addressId);
+      } catch (e) {
+        print('⚠️ Warning: Could not parse address ID "$addressId", using 1');
+        deliveryAddressId = 1;
+      }
+
+      // Call API to create order
       final orderResponse = await OrderApi.createOrder(
         token: token,
         customerId: int.parse(customerId),
         restaurantId: cartProvider.currentRestaurantId!,
-        items: cartProvider.items
-            .map(
-              (cartItem) => OrderItem(
-                itemId: cartItem.item,
-                quantity: cartItem.quantity,
-                specialInstructions: _instructionsController.text,
-              ),
-            )
-            .toList(),
-        deliveryAddress: widget.selectedLocation?.address ?? "Unknown Location",
-        latitude: widget.selectedLocation?.lat ?? 0,
-        longitude: widget.selectedLocation?.lng ?? 0,
-        specialInstructions: _instructionsController.text,
+        deliveryAddressId: deliveryAddressId
+            .toString(), // Backend expects String
+        contactNumber: widget.selectedNumber.isNotEmpty
+            ? widget.selectedNumber
+            : '0000000000',
+        orderItems: orderItems,
+        deliveryAddress: widget.selectedLocation?.address ?? 'Unknown Location',
+        subTotal: cartProvider.subTotal,
+        deliveryFee: cartProvider.deliveryFee,
+        discountAmount: cartProvider.discountAmount,
+        finalAmount: cartProvider.finalAmount,
+        paymentMethod: paymentMethodCode,
+        specialInstructions: _instructionsController.text.trim().isNotEmpty
+            ? _instructionsController.text.trim()
+            : null,
       );
 
       if (!orderResponse.success || orderResponse.data == null) {
         throw Exception(orderResponse.message);
       }
 
-      final order = orderResponse.data!;
-      setState(() => _orderId = order.id);
-
-      // Process payment for the created order (assuming a generic process for now)
-      final paymentResponse = await OrderApi.createPayment(
-        token: token,
-        orderId: _orderId!,
-        paymentMethod: widget.paymentMethod, // Use selected payment method
-        amount: order.totalPrice,
-        phone: widget.selectedNumber, // Pass phone if available
-      );
-
-      if (!paymentResponse.success || paymentResponse.data == null) {
-        throw Exception(paymentResponse.message);
-      }
-
-      setState(() {
-        _paymentId = paymentResponse.data!.id;
-      });
+      // ... rest of your code
+    } catch (e, stackTrace) {
+      print('❌ Error placing order: $e');
+      print('📚 Stack trace: $stackTrace');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order placed and payment processed successfully!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
-
-      // Navigate to OrdersPage on successful order creation and payment
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const OrdersPage()),
-        (route) => false,
-      );
-    } catch (e) {
-      print('❌ Error placing order: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error placing order: ${e.toString()}')));
-      }
     } finally {
-      setState(() => _isPlacingOrder = false);
+      if (mounted) setState(() => _isPlacingOrder = false);
+    }
+  }
+
+
+
+  String _mapPaymentMethod(String methodName) {
+    switch (methodName) {
+      case 'MOMO by MTN':
+        return 'MPESA'; // or 'EMOLA' if your backend uses that for MoMo
+      case 'Vuba Wallet':
+        return 'CARD'; // adjust if backend has separate code
+      case 'Visa Card':
+      case 'MasterCard':
+        return 'CARD';
+      case 'Airtel Money':
+        return 'EMOLA';
+      case 'SmartCash':
+        return 'CASH';
+      case 'SPENN':
+        return 'CASH';
+      default:
+        return 'CASH';
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vuba/response/api_response.dart';
 import 'dart:math' as math;
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
@@ -60,7 +61,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
       final response = await OrderApi.getCustomerOrders(
         token: token,
-        customerId: customerIdInt.toString(),
+        customerId: customerIdInt,
       );
 
       if (mounted) {
@@ -73,18 +74,20 @@ class _OrdersPageState extends State<OrdersPage> {
                 case 'Processing':
                   return [
                     'PENDING',
+                    'PLACED', // ✅ include PLACED here
                     'PROCESSING',
                     'PREPARING',
                     'ON_THE_WAY',
-                  ].contains(order.orderStatus.toUpperCase());
+                  ].contains(order.orderStatus?.toUpperCase());
                 case 'Completed':
-                  return order.orderStatus.toUpperCase() == 'DELIVERED';
+                  return order.orderStatus?.toUpperCase() == 'DELIVERED';
                 case 'Failed':
-                  return order.orderStatus.toUpperCase() == 'CANCELLED';
+                  return order.orderStatus?.toUpperCase() == 'CANCELLED';
                 default:
                   return true;
               }
             }).toList();
+
 
             print(
               '📦 Found ${_orders.length} orders for status: $_selectedStatus',
@@ -115,24 +118,27 @@ class _OrdersPageState extends State<OrdersPage> {
   List<Order> _getFilteredOrders() {
     if (_selectedStatus == 'Processing') {
       // Show orders that are pending payment or in progress
-      return _orders
-          .where(
-            (order) =>
-                order.paymentStatus == 'pending' ||
-                order.orderStatus == 'pending' ||
-                order.orderStatus == 'accepted' ||
-                order.orderStatus == 'preparing' ||
-                order.orderStatus == 'on_the_way',
-          )
-          .toList();
+      return _orders.where((order) {
+        final status = order.orderStatus?.toUpperCase() ?? '';
+        final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
+
+        return paymentStatus == 'PENDING' ||
+            status == 'PENDING' ||
+            status == 'PLACED' || // ✅ Added PLACED
+            status == 'ACCEPTED' ||
+            status == 'PREPARING' ||
+            status == 'ON_THE_WAY';
+      }).toList();
     } else if (_selectedStatus == 'Completed') {
-      return _orders
-          .where((order) => order.orderStatus == 'delivered')
-          .toList();
+      return _orders.where((order) {
+        final status = order.orderStatus?.toUpperCase() ?? '';
+        return status == 'DELIVERED';
+      }).toList();
     } else if (_selectedStatus == 'Failed') {
-      return _orders
-          .where((order) => order.orderStatus == 'cancelled')
-          .toList();
+      return _orders.where((order) {
+        final status = order.orderStatus?.toUpperCase() ?? '';
+        return status == 'CANCELLED';
+      }).toList();
     }
     return _orders;
   }
@@ -468,6 +474,11 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Widget _buildOrderCard(Order order) {
+    double total =
+        (order.subTotal ?? 0) +
+        (order.deliveryFee ?? 0) -
+        (order.discountAmount ?? 0);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -487,7 +498,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Order #${order.id ?? ''}',
+                    'Order #${order.orderId ?? ''}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -496,7 +507,9 @@ class _OrdersPageState extends State<OrdersPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _formatDate(order.createdAt ?? DateTime.now()),
+                    _formatDate(order.createdAt != null
+                        ? DateTime.parse(order.createdAt!)
+                        : DateTime.now()),
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -527,7 +540,10 @@ class _OrdersPageState extends State<OrdersPage> {
           const SizedBox(height: 12),
 
           // Order Items
-          ...order.items.map((item) => _buildOrderItemRow(item)),
+          ...(order.items ?? [])
+              .map((item) => _buildOrderItemRow(item))
+              .toList(),
+
 
           const SizedBox(height: 12),
           const Divider(color: AppColors.inputBorder),
@@ -549,7 +565,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       ),
                     ),
                     Text(
-                      order.location.address,
+                      order.deliveryAddress??'No address provided',
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.onBackground,
@@ -569,7 +585,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     ),
                   ),
                   Text(
-                    'RWF ${order.totalPrice.toStringAsFixed(0)}',
+                    'RWF ${total.toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -582,8 +598,9 @@ class _OrdersPageState extends State<OrdersPage> {
           ),
 
           // Action Buttons
-          if (order.paymentStatus == 'pending' ||
-              order.orderStatus == 'pending') ...[
+          if (order.paymentStatus?.toUpperCase() == 'PENDING' ||
+              order.orderStatus?.toUpperCase() == 'PENDING' ||
+              order.orderStatus?.toUpperCase() == 'PLACED') ...[
             const SizedBox(height: 16),
             Row(
               children: [
@@ -655,7 +672,7 @@ class _OrdersPageState extends State<OrdersPage> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'x${item.quantity} - ${item.itemId}',
+              'x${item.quantity} - ${item.menuItemId}',
               style: const TextStyle(
                 fontSize: 14,
                 color: AppColors.onBackground,
@@ -684,29 +701,41 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Color _getStatusColor(Order order) {
-    if (order.paymentStatus == 'pending' || order.orderStatus == 'pending') {
+    final status = order.orderStatus?.toUpperCase() ?? '';
+    final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
+
+    if (paymentStatus == 'PENDING' ||
+        status == 'PENDING' ||
+        status == 'PLACED' ||
+        status == 'PREPARING') {
       return Colors.orange;
     }
-    if (order.orderStatus == 'delivered') {
+    if (status == 'DELIVERED') {
       return AppColors.success;
     }
-    if (order.orderStatus == 'cancelled') {
+    if (status == 'CANCELLED') {
       return AppColors.error;
     }
     return AppColors.textSecondary;
   }
 
   String _getStatusText(Order order) {
-    if (order.paymentStatus == 'pending' || order.orderStatus == 'pending') {
+    final status = order.orderStatus?.toUpperCase() ?? '';
+    final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
+
+    if (paymentStatus == 'PENDING' ||
+        status == 'PENDING' ||
+        status == 'PLACED' ||
+        status == 'PREPARING') {
       return 'Processing';
     }
-    if (order.orderStatus == 'delivered') {
+    if (status == 'DELIVERED') {
       return 'Completed';
     }
-    if (order.orderStatus == 'cancelled') {
+    if (status == 'CANCELLED') {
       return 'Failed';
     }
-    return order.orderStatus;
+    return order.orderStatus ?? 'Unknown';
   }
 
   String _getEmptyStateTitle() {
@@ -723,12 +752,262 @@ class _OrdersPageState extends State<OrdersPage> {
   double _cos(double angle) => math.cos(angle);
   double _sin(double angle) => math.sin(angle);
 
-  void _trackOrder(Order order) {
-    // TODO: Navigate to order tracking page
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Order tracking will be available soon!')),
+
+Future<void> _trackOrder(Order order) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    if (token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login to track orders')),
+        );
+      }
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => FutureBuilder<ApiResponse<Order>>(
+        future: OrderApi.trackOrder(token: token, orderId: order.orderId!),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return SizedBox(
+              height: 200,
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            );
+          } else if (snapshot.hasError) {
+            return SizedBox(
+              height: 200,
+              child: Center(
+                child: Text(
+                  'Failed to track order: ${snapshot.error}',
+                  style: const TextStyle(color: AppColors.error),
+                ),
+              ),
+            );
+          } else if (!snapshot.hasData || snapshot.data!.success != true) {
+            return SizedBox(
+              height: 200,
+              child: Center(
+                child: Text(
+                  snapshot.data?.message ?? 'Failed to track order',
+                  style: const TextStyle(color: AppColors.error),
+                ),
+              ),
+            );
+          } else {
+            final trackedOrder = snapshot.data!.data!;
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Track Order #${trackedOrder.orderNumber ?? trackedOrder.orderId}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.onBackground,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.close,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Current Status
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Current Status',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                trackedOrder.currentStatus ?? 'Unknown',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.onBackground,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Estimated Time
+                  if (trackedOrder.estimatedMinutesRemaining != null)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.inputBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.access_time,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Estimated delivery: ${trackedOrder.estimatedMinutesRemaining} minutes',
+                            style: const TextStyle(
+                              color: AppColors.onBackground,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // Status History
+                  if (trackedOrder.statusHistory != null &&
+                      trackedOrder.statusHistory!.isNotEmpty) ...[
+                    const Text(
+                      'Order Timeline',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.onBackground,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...trackedOrder.statusHistory!.map(
+                      (status) => _buildTrackStep(
+                        status,
+                        trackedOrder.currentStatus?.toUpperCase() ==
+                            status.status?.toUpperCase(),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+
+                  // Close Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Close',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          }
+        },
+      ),
     );
   }
+
+  Widget _buildTrackStep(OrderStatusHistory step, bool isCurrent) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            isCurrent
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked,
+            color: isCurrent ? AppColors.primary : AppColors.textSecondary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  step.status ?? '',
+                  style: TextStyle(
+                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                    color: AppColors.onBackground,
+                  ),
+                ),
+                if (step.message != null)
+                  Text(
+                    step.message!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                if (step.timestamp != null)
+                  Text(
+                    step.timestamp!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
 
   Future<void> _reorder(Order order) async {
     try {
@@ -745,7 +1024,7 @@ class _OrdersPageState extends State<OrdersPage> {
       }
 
       // Create a new order with the same items
-      final customerId = int.tryParse(order.userId.id);
+      final customerId = int.tryParse(order.customerId.toString());
       if (customerId == null) {
         throw Exception('Invalid customer ID format');
       }
@@ -753,11 +1032,18 @@ class _OrdersPageState extends State<OrdersPage> {
       final response = await OrderApi.createOrder(
         token: token,
         customerId: customerId,
-        restaurantId: order.restaurantId,
-        items: order.items,
-        deliveryAddress: order.location.address,
-        latitude: order.location.latitude,
-        longitude: order.location.longitude,
+        restaurantId: order.restaurantId !,
+        deliveryAddressId: order.deliveryAddress!,
+        orderItems: order.items!,
+        deliveryAddress: order.deliveryAddress!,
+        subTotal: order.subTotal!,
+        deliveryFee: order.deliveryFee!,
+        discountAmount: order.discountAmount!,
+        finalAmount: order.finalAmount!,
+        paymentMethod: order.paymentMethod!,
+        specialInstructions: order.specialInstructions!,
+        promotionId: order.discountAmount! > 0 ? 1 : null,
+        contactNumber: order.contactNumber!,
       );
 
       if (mounted) {
@@ -791,93 +1077,80 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  Future<void> _cancelOrder(Order order) async {
-    try {
-      // Show confirmation dialog
-      final bool? shouldCancel = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: const Text(
-            'Cancel Order',
-            style: TextStyle(color: AppColors.onBackground),
-          ),
-          content: const Text(
-            'Are you sure you want to cancel this order?',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text(
-                'No',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              child: const Text('Yes, Cancel'),
-            ),
-          ],
-        ),
-      );
+ Future<void> _cancelOrder(Order order) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
 
-      if (shouldCancel != true) return;
-
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      if (token == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please login to cancel orders')),
-          );
-        }
-        return;
-      }
-
-      // Show loading indicator
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Cancelling order...')));
-      }
-
-      final response = await OrderApi.updateOrderStatus(
-        token: token,
-        orderId: order.id!,
-        status: 'cancelled',
-      );
-
-      if (mounted) {
-        if (response.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order cancelled successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          // Refresh the orders list
-          _fetchOrders();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response.message),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
+    if (token == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login to cancel orders')),
+        );
+      }
+      return;
+    }
+
+    final bool? shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Cancel Order',
+          style: TextStyle(color: AppColors.onBackground),
+        ),
+        content: const Text(
+          'Are you sure you want to cancel this order?',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'No',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCancel != true) return;
+
+    // Show loading snackbar
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cancelling order...')));
+    }
+
+    final response = await OrderApi.cancelOrder(
+      token: token,
+      orderId: order.orderId!,
+    );
+
+    if (mounted) {
+      if (response.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order cancelled successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _fetchOrders(); // Refresh list
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error cancelling order: $e'),
+            content: Text(response.message),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
   }
+
 }

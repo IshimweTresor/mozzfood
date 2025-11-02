@@ -5,7 +5,7 @@ import '../models/menuItem.model.dart';
 
 class CartProvider extends ChangeNotifier {
   static const String _cartKey = 'cart_items';
-  List<_CartItem> _items = [];
+  List<CartItem> _items = [];
   int? _currentRestaurantId;
   String? _currentRestaurantName;
 
@@ -13,7 +13,7 @@ class CartProvider extends ChangeNotifier {
     _loadCart();
   }
 
-  List<_CartItem> get items => List.unmodifiable(_items);
+  List<CartItem> get items => List.unmodifiable(_items);
   int? get currentRestaurantId => _currentRestaurantId;
   String? get currentRestaurantName => _currentRestaurantName;
 
@@ -31,13 +31,18 @@ class CartProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final cartString = prefs.getString(_cartKey);
     if (cartString != null) {
-      final decoded = jsonDecode(cartString);
-      _currentRestaurantId = decoded['restaurantId'] as int?;
-      _currentRestaurantName = decoded['restaurantName'] as String?;
-      _items = (decoded['items'] as List)
-          .map((e) => _CartItem.fromJson(e))
-          .toList();
-      notifyListeners();
+      try {
+        final decoded = jsonDecode(cartString);
+        _currentRestaurantId = decoded['restaurantId'] as int?;
+        _currentRestaurantName = decoded['restaurantName'] as String?;
+        _items = (decoded['items'] as List)
+            .map((e) => CartItem.fromJson(e))
+            .toList();
+        notifyListeners();
+      } catch (e) {
+        print('Error loading cart: $e');
+        _items = [];
+      }
     }
   }
 
@@ -51,13 +56,23 @@ class CartProvider extends ChangeNotifier {
     await prefs.setString(_cartKey, encoded);
   }
 
-  void addToCart(MenuItem item, int quantity) {
+  void setRestaurantName(String name) {
+    _currentRestaurantName = name;
+    _saveCart();
+    notifyListeners();
+  }
+
+  void addToCart(
+    MenuItem item,
+    int quantity, {
+    String? specialInstructions,
+    List<int>? variantIds,
+  }) {
     // If cart has items from a different restaurant, clear cart
     if (_items.isNotEmpty && _currentRestaurantId != item.restaurantId) {
       _items.clear();
       _currentRestaurantId = item.restaurantId;
-      _currentRestaurantName =
-          null; // This should be set when adding the first item
+      _currentRestaurantName = null;
     }
 
     // If this is the first item, set the restaurant info
@@ -65,20 +80,36 @@ class CartProvider extends ChangeNotifier {
       _currentRestaurantId = item.restaurantId;
     }
 
-    final index = _items.indexWhere((e) => e.item.id == item.id);
+    final index = _items.indexWhere(
+      (e) =>
+          e.item.id == item.id &&
+          _listEquals(e.selectedVariantIds, variantIds ?? []),
+    );
+
     if (index != -1) {
       _items[index] = _items[index].copyWith(
         quantity: _items[index].quantity + quantity,
       );
     } else {
-      _items.add(_CartItem(item: item, quantity: quantity));
+      _items.add(
+        CartItem(
+          item: item,
+          quantity: quantity,
+          specialInstructions: specialInstructions,
+          selectedVariantIds: variantIds ?? [],
+        ),
+      );
     }
     _saveCart();
     notifyListeners();
   }
 
-  void removeFromCart(int itemId) {
-    _items.removeWhere((e) => e.item.id == itemId);
+  void removeFromCart(int itemId, {List<int>? variantIds}) {
+    _items.removeWhere(
+      (e) =>
+          e.item.id == itemId &&
+          _listEquals(e.selectedVariantIds, variantIds ?? []),
+    );
     if (_items.isEmpty) {
       _currentRestaurantId = null;
       _currentRestaurantName = null;
@@ -87,10 +118,35 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateQuantity(int itemId, int quantity) {
-    final index = _items.indexWhere((e) => e.item.id == itemId);
+  void updateQuantity(int itemId, int quantity, {List<int>? variantIds}) {
+    final index = _items.indexWhere(
+      (e) =>
+          e.item.id == itemId &&
+          _listEquals(e.selectedVariantIds, variantIds ?? []),
+    );
     if (index != -1) {
-      _items[index] = _items[index].copyWith(quantity: quantity);
+      if (quantity <= 0) {
+        _items.removeAt(index);
+      } else {
+        _items[index] = _items[index].copyWith(quantity: quantity);
+      }
+      _saveCart();
+      notifyListeners();
+    }
+  }
+
+  void updateSpecialInstructions(
+    int itemId,
+    String? instructions, {
+    List<int>? variantIds,
+  }) {
+    final index = _items.indexWhere(
+      (e) =>
+          e.item.id == itemId &&
+          _listEquals(e.selectedVariantIds, variantIds ?? []),
+    );
+    if (index != -1) {
+      _items[index] = _items[index].copyWith(specialInstructions: instructions);
       _saveCart();
       notifyListeners();
     }
@@ -107,29 +163,65 @@ class CartProvider extends ChangeNotifier {
   int get totalItems => _items.fold(0, (sum, e) => sum + e.quantity);
 
   double get totalPrice =>
-      _items.fold(0, (sum, e) => sum + e.item.price * e.quantity);
+      _items.fold(0.0, (sum, e) => sum + (e.item.price ?? 0) * e.quantity);
+
+  double get subTotal => totalPrice;
+
+  double get deliveryFee => 2000.0; // You can make this dynamic
+
+  double get discountAmount => 0.0; // Calculate based on promotions
+
+  double get finalAmount => subTotal + deliveryFee - discountAmount;
+
+  bool _listEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 }
 
-class _CartItem {
+class CartItem {
   final MenuItem item;
   final int quantity;
+  final String? specialInstructions;
+  final List<int> selectedVariantIds;
 
-  _CartItem({required this.item, required this.quantity});
+  CartItem({
+    required this.item,
+    required this.quantity,
+    this.specialInstructions,
+    this.selectedVariantIds = const [],
+  });
 
-  _CartItem copyWith({MenuItem? item, int? quantity}) {
-    return _CartItem(
+  CartItem copyWith({
+    MenuItem? item,
+    int? quantity,
+    String? specialInstructions,
+    List<int>? selectedVariantIds,
+  }) {
+    return CartItem(
       item: item ?? this.item,
       quantity: quantity ?? this.quantity,
+      specialInstructions: specialInstructions ?? this.specialInstructions,
+      selectedVariantIds: selectedVariantIds ?? this.selectedVariantIds,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'item': item.toJson(),
     'quantity': quantity,
+    if (specialInstructions != null) 'specialInstructions': specialInstructions,
+    'selectedVariantIds': selectedVariantIds,
   };
 
-  factory _CartItem.fromJson(Map<String, dynamic> json) => _CartItem(
+  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
     item: MenuItem.fromJson(json['item']),
     quantity: json['quantity'],
+    specialInstructions: json['specialInstructions'] as String?,
+    selectedVariantIds: json['selectedVariantIds'] != null
+        ? List<int>.from(json['selectedVariantIds'])
+        : [],
   );
 }

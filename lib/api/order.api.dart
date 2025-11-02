@@ -18,11 +18,11 @@ class OrderApi {
   /// GET /api/orders/getOrdersByCustomerId/{customerId}
   static Future<ApiResponse<List<Order>>> getCustomerOrders({
     required String token,
-    required String customerId,
+    required int customerId,
   }) async {
     try {
       final uri = Uri.parse(
-        '$baseUrl/api/orders/getOrdersByCustomerId/$customerId',
+        '$baseUrl/api/orders/getOrdersByCustomer/$customerId',
       );
       print('🔄 Fetching orders for customer: $customerId');
 
@@ -38,25 +38,20 @@ class OrderApi {
         String message = 'Orders fetched successfully';
 
         if (data is List) {
-          // Case 1: Backend returns a direct list of orders (can be empty)
           orders = data.map((o) => Order.fromJson(o)).toList();
         } else if (data is Map<String, dynamic>) {
-          // Case 2: Backend returns a map with 'success' and 'data' fields
           if (data['success'] == true) {
             final ordersList = data['data'];
             if (ordersList is List) {
               orders = ordersList.map((o) => Order.fromJson(o)).toList();
             } else if (ordersList == null) {
-              // 'data' field is null, treat as empty list
               orders = [];
             } else {
-              // 'data' field is not a list, log error and treat as empty
               print('⚠️ Warning: data field is not a List: $ordersList');
               message = 'Failed to parse orders data';
             }
             message = data['message'] ?? message;
           } else {
-            // 'success' is false
             message = data['message'] ?? 'Failed to fetch orders';
             return ApiResponse<List<Order>>(
               success: false,
@@ -65,13 +60,9 @@ class OrderApi {
             );
           }
         } else {
-          // Unexpected response format
           print('⚠️ Warning: Unexpected response format: $data');
           message = 'Unexpected response format from server';
-          return ApiResponse<List<Order>>(
-            success: false,
-            message: message,
-          );
+          return ApiResponse<List<Order>>(success: false, message: message);
         }
 
         print('✅ Found ${orders.length} orders');
@@ -82,7 +73,6 @@ class OrderApi {
         );
       }
 
-      // Handle non-200 status codes or other failures
       String errorMessage = 'Failed to fetch orders';
       dynamic errorDetails;
       if (data is Map<String, dynamic>) {
@@ -111,10 +101,10 @@ class OrderApi {
   /// GET /api/orders/getOrderById/{id}
   static Future<ApiResponse<Order>> getOrderById({
     required String token,
-    required String orderId,
+    required int orderId,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/orders/$orderId');
+      final uri = Uri.parse('$baseUrl/api/orders/getOrderById/$orderId');
       print('🔄 Fetching order details: $orderId');
 
       final response = await http.get(uri, headers: _getHeaders(token: token));
@@ -157,65 +147,118 @@ class OrderApi {
     required String token,
     required int customerId,
     required int restaurantId,
-    required List<OrderItem> items,
+    required String deliveryAddressId,
+    required List<OrderItem> orderItems,
     required String deliveryAddress,
-    required double latitude,
-    required double longitude,
+    required double subTotal,
+    required double deliveryFee,
+    required double discountAmount,
+    required double finalAmount,
+    required String paymentMethod,
+    required String contactNumber,
     String? specialInstructions,
+    int? promotionId,
+    String? estimatedDeliveryTime,
   }) async {
     try {
       print('🔄 Creating new order');
       print('👤 Customer ID: $customerId');
       print('🏪 Restaurant ID: $restaurantId');
       print('📍 Delivery Address: $deliveryAddress');
-      print('🗺️ Location: $latitude, $longitude');
-      print('📝 Special Instructions: $specialInstructions');
-      print('🛒 Items: ${items.length}');
+      print('📞 Contact Number: $contactNumber');
+      print('🛒 Items: ${orderItems.length}');
+      print('💰 Final Amount: $finalAmount');
+
+      // Get current date in yyyy-MM-dd format
+      final now = DateTime.now();
+      final orderPlacedAt =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+      // Calculate estimated delivery (30 minutes from now)
+      final estimatedDelivery = now.add(const Duration(minutes: 30));
+      final estimatedDeliveryDate =
+          '${estimatedDelivery.year}-${estimatedDelivery.month.toString().padLeft(2, '0')}-${estimatedDelivery.day.toString().padLeft(2, '0')}';
+
+      final requestBody = {
+        'restaurantId': restaurantId,
+        'customerId': customerId,
+        'deliveryAddressId': int.tryParse(deliveryAddressId) ?? 0,
+        'orderStatus': 'PLACED',
+        'deliveryAddress': deliveryAddress,
+        'contactNumber': contactNumber,
+        'paymentStatus': 'PENDING',
+        'subTotal': subTotal,
+        'deliveryFee': deliveryFee,
+        'discountAmount': discountAmount,
+        'finalAmount': finalAmount,
+        'paymentMethod': paymentMethod,
+        'orderPlacedAt': orderPlacedAt,
+        'estimatedDelivery':
+            estimatedDeliveryTime ?? estimatedDeliveryDate, // ✅ ADDED THIS
+        'orderItems': orderItems
+            .map(
+              (item) => {
+                'menuItemId': item.menuItemId,
+                'quantity': item.quantity,
+                if (item.specialInstructions != null &&
+                    item.specialInstructions!.isNotEmpty)
+                  'specialInstructions': item.specialInstructions,
+                if (item.variantIds != null && item.variantIds!.isNotEmpty)
+                  'variantIds': item.variantIds,
+              },
+            )
+            .toList(),
+        if (specialInstructions != null && specialInstructions.isNotEmpty)
+          'specialInstructions': specialInstructions,
+        if (promotionId != null && promotionId > 0) 'promotionId': promotionId,
+      };
+
+      print('📤 Request body: ${jsonEncode(requestBody)}');
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/orders/createOrder'),
         headers: _getHeaders(token: token),
-        body: jsonEncode({
-          'customerId': customerId,
-          'restaurantId': restaurantId,
-          'items': items
-              .map(
-                (i) => {
-                  'menuItemId': i.itemId.id,
-                  'quantity': i.quantity,
-                  'specialInstructions': i.specialInstructions,
-                },
-              )
-              .toList(),
-          'deliveryAddress': deliveryAddress,
-          'location': {'latitude': latitude, 'longitude': longitude},
-          if (specialInstructions != null)
-            'specialInstructions': specialInstructions,
-        }),
+        body: jsonEncode(requestBody),
       );
 
       print('📡 Response status: ${response.statusCode}');
       print('📡 Response body: ${response.body}');
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 201) {
-        if (data['success'] == true) {
-          final order = Order.fromJson(data['data']);
-          print('✅ Order created successfully');
-          return ApiResponse<Order>(
-            success: true,
-            message: data['message'] ?? 'Order created successfully',
-            data: order,
-          );
-        }
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final order = Order.fromJson(data);
+        print('✅ Order created successfully: ${order.orderNumber}');
+        return ApiResponse<Order>(
+          success: true,
+          message: 'Order created successfully',
+          data: order,
+        );
       }
 
-      return ApiResponse<Order>(
-        success: false,
-        message: data['message'] ?? 'Failed to create order',
-        error: data['error'],
-      );
+      // Handle error responses
+      try {
+        final data = jsonDecode(response.body);
+        String errorMessage = 'Failed to create order';
+
+        if (data is Map<String, dynamic>) {
+          errorMessage =
+              data['message'] ??
+              data['error'] ??
+              'Failed to create order (${response.statusCode})';
+        }
+
+        return ApiResponse<Order>(
+          success: false,
+          message: errorMessage,
+          error: data,
+        );
+      } catch (parseError) {
+        return ApiResponse<Order>(
+          success: false,
+          message: 'Server error: ${response.statusCode}',
+          error: response.body,
+        );
+      }
     } catch (e, stack) {
       print('❌ Error creating order: $e');
       print('📚 Stack trace: $stack');
@@ -353,7 +396,7 @@ class OrderApi {
 
       final data = jsonDecode(response.body);
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         if (data['success'] == true) {
           final payment = Payment.fromJson(data['data']);
           print('✅ Payment processed successfully');
@@ -415,7 +458,7 @@ class OrderApi {
 
       final data = jsonDecode(response.body);
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         if (data['success'] == true) {
           final payment = Payment.fromJson(data['data']);
           print('✅ Payment created successfully');
@@ -454,8 +497,8 @@ class OrderApi {
     try {
       print('🔄 Updating payment status');
       print('💳 Payment ID: $paymentId');
-      print('� New Status: $status');
-      if (transactionId != null) print('� Transaction ID: $transactionId');
+      print('📊 New Status: $status');
+      if (transactionId != null) print('🔑 Transaction ID: $transactionId');
 
       final body = {
         'status': status,
@@ -553,18 +596,18 @@ class OrderApi {
   /// PUT /api/orders/updateOrderStatus/{orderId}
   static Future<ApiResponse<Order>> updateOrderStatus({
     required String token,
-    required String orderId,
+    required int orderId,
     required String status,
   }) async {
     try {
       print('🔄 Updating order status');
-      print('� Order ID: $orderId');
+      print('📦 Order ID: $orderId');
       print('📊 New Status: $status');
 
       final response = await http.put(
-        Uri.parse('$baseUrl/api/orders/$orderId/status'),
+        Uri.parse('$baseUrl/api/orders/updateOrderStatus/$orderId'),
         headers: _getHeaders(token: token),
-        body: jsonEncode({'status': status}),
+        body: jsonEncode({'orderStatus': status}),
       );
 
       print('📡 Response status: ${response.statusCode}');
@@ -591,6 +634,112 @@ class OrderApi {
       );
     } catch (e, stack) {
       print('❌ Error updating order status: $e');
+      print('📚 Stack trace: $stack');
+      return ApiResponse<Order>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+ //track order
+  static Future<ApiResponse<Order>> trackOrder({
+    required String token,
+    required int orderId,
+  }) async {
+    try {
+      print('🔄 Tracking order: $orderId');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/orders/$orderId/track'),
+        headers: _getHeaders(token: token),
+      );
+
+      print('📡 Response status: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // ✅ Backend returns the order directly, not wrapped in success/data
+        final order = Order.fromJson(data);
+        print('✅ Order tracked successfully');
+        return ApiResponse<Order>(
+          success: true,
+          message: 'Order tracked successfully',
+          data: order,
+        );
+      }
+
+      // Handle error responses
+      try {
+        final data = jsonDecode(response.body);
+        return ApiResponse<Order>(
+          success: false,
+          message: data['message'] ?? 'Failed to track order',
+          error: data['error'],
+        );
+      } catch (e) {
+        return ApiResponse<Order>(
+          success: false,
+          message: 'Failed to track order: ${response.statusCode}',
+        );
+      }
+    } catch (e, stack) {
+      print('❌ Error tracking order: $e');
+      print('📚 Stack trace: $stack');
+      return ApiResponse<Order>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+  //cancel order
+  static Future<ApiResponse<Order>> cancelOrder({
+    required String token,
+    required int orderId,
+  }) async {
+    try {
+      print('🔄 Cancelling order: $orderId');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/orders/cancelOrder/$orderId'),
+        headers: _getHeaders(token: token),
+      );
+
+      print('📡 Response status: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // ✅ Backend returns the order directly, not wrapped in success/data
+        final order = Order.fromJson(data);
+        print('✅ Order cancelled successfully');
+        return ApiResponse<Order>(
+          success: true,
+          message: 'Order cancelled successfully',
+          data: order,
+        );
+      }
+
+      // Handle error responses
+      try {
+        final data = jsonDecode(response.body);
+        return ApiResponse<Order>(
+          success: false,
+          message: data['message'] ?? 'Failed to cancel order',
+          error: data['error'],
+        );
+      } catch (e) {
+        return ApiResponse<Order>(
+          success: false,
+          message: 'Failed to cancel order: ${response.statusCode}',
+        );
+      }
+    } catch (e, stack) {
+      print('❌ Error cancelling order: $e');
       print('📚 Stack trace: $stack');
       return ApiResponse<Order>(
         success: false,
