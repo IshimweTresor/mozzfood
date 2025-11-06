@@ -19,8 +19,8 @@ class LocationSelectionPage extends StatefulWidget {
 
 class _LocationSelectionPageState extends State<LocationSelectionPage> {
   String _selectedAddressOption = 'Always Ask';
-  String _selectedCountry = 'RWANDA';
-  String _selectedProvince = 'KIGALI';
+  final String _selectedCountry = 'RWANDA';
+  final String _selectedProvince = 'KIGALI';
   List<SavedLocation> _savedLocations = [];
   // Removed unused _preferences field
   bool _isLoading = true;
@@ -601,7 +601,7 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                                       location,
                                       locationIndex,
                                     );
-                                  }).toList(),
+                                  }),
                                   const SizedBox(height: 20),
                                   const Text(
                                     'Or select a province:',

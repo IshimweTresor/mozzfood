@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import '../api/user.api.dart';
 import '../models/user.model.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
-import '../widgets/custom_text_field.dart';
-import 'home_page.dart';
 import 'package:http/http.dart' as http;
 
 class LocationDetailsPage extends StatefulWidget {

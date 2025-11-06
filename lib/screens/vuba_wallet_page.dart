@@ -9,7 +9,7 @@ class VubaWalletPage extends StatefulWidget {
 }
 
 class _VubaWalletPageState extends State<VubaWalletPage> {
-  double _balance = 0.0;
+  final double _balance = 0.0;
 
   @override
   Widget build(BuildContext context) {

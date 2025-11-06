@@ -56,12 +56,10 @@ class VubaApp extends StatelessWidget {
           primary: AppColors.primary,
           secondary: AppColors.primary,
           surface: AppColors.surface,
-          background: AppColors.background,
           error: AppColors.error,
           onPrimary: Colors.white,
           onSecondary: Colors.white,
           onSurface: AppColors.onSurface,
-          onBackground: AppColors.onBackground,
           onError: Colors.white,
         ),
         fontFamily: 'Roboto',
@@ -101,13 +99,13 @@ class VubaApp extends StatelessWidget {
           ),
         ),
         checkboxTheme: CheckboxThemeData(
-          fillColor: MaterialStateProperty.resolveWith((states) {
-            if (states.contains(MaterialState.selected)) {
+          fillColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
               return AppColors.primary;
             }
             return Colors.transparent;
           }),
-          checkColor: MaterialStateProperty.all(Colors.white),
+          checkColor: WidgetStateProperty.all(Colors.white),
           side: const BorderSide(color: AppColors.inputBorder),
         ),
       ),

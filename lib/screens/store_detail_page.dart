@@ -8,7 +8,7 @@ import '../providers/cartproviders.dart';
 
 class StoreDetailPage extends StatefulWidget {
   final Vendor vendor;
-  const StoreDetailPage({required this.vendor, Key? key}) : super(key: key);
+  const StoreDetailPage({required this.vendor, super.key});
 
   @override
   State<StoreDetailPage> createState() => _StoreDetailPageState();
@@ -298,8 +298,8 @@ class ProductDetailSheet extends StatefulWidget {
   const ProductDetailSheet({
     required this.menuItem,
     required this.storeName,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<ProductDetailSheet> createState() => _ProductDetailSheetState();

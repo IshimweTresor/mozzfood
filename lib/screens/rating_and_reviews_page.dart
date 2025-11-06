@@ -9,7 +9,7 @@ class RatingAndReviewsPage extends StatefulWidget {
 }
 
 class _RatingAndReviewsPageState extends State<RatingAndReviewsPage> {
-  List<ReviewItem> _reviews = [
+  final List<ReviewItem> _reviews = [
     ReviewItem(
       name: 'BAHATI NYANDWI',
       date: '2025-04-23 21:26:02',

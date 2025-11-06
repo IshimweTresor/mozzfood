@@ -25,6 +25,52 @@ class _OrdersPageState extends State<OrdersPage> {
   void initState() {
     super.initState();
     _fetchOrders();
+    // After build, check whether we should show an "order placed" message.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkOrderPlacedFlag();
+    });
+  }
+
+  // Check for a flag (either route args or SharedPreferences) indicating an order was just placed
+  Future<void> _checkOrderPlacedFlag() async {
+    // 1) Check route arguments (useful when navigating here with arguments)
+    try {
+      final routeArgs = ModalRoute.of(context)?.settings.arguments;
+      if (routeArgs is Map && routeArgs['orderPlaced'] == true) {
+        final id = routeArgs['orderId'];
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Order ${id ?? ''} placed successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        await _fetchOrders();
+        return;
+      }
+    } catch (_) {}
+
+    // 2) Check SharedPreferences flag (some flows may set this before navigation)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final placed = prefs.getBool('order_placed') ?? false;
+      final placedId = prefs.getString('order_placed_id');
+      if (placed) {
+        // Clear the flag so we don't show it repeatedly
+        await prefs.remove('order_placed');
+        await prefs.remove('order_placed_id');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Order ${placedId ?? ''} placed successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        await _fetchOrders();
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchOrders() async {
@@ -88,7 +134,6 @@ class _OrdersPageState extends State<OrdersPage> {
               }
             }).toList();
 
-
             print(
               '📦 Found ${_orders.length} orders for status: $_selectedStatus',
             );
@@ -145,234 +190,289 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _getFilteredOrders();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
-          children: [
+        child: CustomScrollView(
+          slivers: [
             // Custom App Bar
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.popAndPushNamed(context, '/home');
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.inputBorder.withOpacity(0.3),
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.popAndPushNamed(context, '/home');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.inputBorder.withOpacity(0.3),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios,
+                          color: AppColors.onBackground,
+                          size: 18,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.arrow_back_ios,
-                        color: AppColors.onBackground,
-                        size: 18,
-                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Text(
-                    'Orders',
-                    style: TextStyle(
-                      color: AppColors.onBackground,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
+                    const SizedBox(width: 16),
+                    Row(
+                      children: [
+                        const Text(
+                          'Orders',
+                          style: TextStyle(
+                            color: AppColors.onBackground,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Show quick count badge for the currently filtered orders
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.inputBorder.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Text(
+                            '${filtered.length}',
+                            style: const TextStyle(
+                              color: AppColors.onBackground,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
+
             // Tab Selection (Order History / Pickup History)
-            Container(
-              margin: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedTab = 'Order History';
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _selectedTab == 'Order History'
-                              ? AppColors.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTab = 'Order History';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
                             color: _selectedTab == 'Order History'
                                 ? AppColors.primary
-                                : AppColors.inputBorder,
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: _selectedTab == 'Order History'
+                                  ? AppColors.primary
+                                  : AppColors.inputBorder,
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          'Order History',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _selectedTab == 'Order History'
-                                ? Colors.white
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
+                          child: Text(
+                            'Order History',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _selectedTab == 'Order History'
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedTab = 'Pickup History';
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _selectedTab == 'Pickup History'
-                              ? AppColors.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTab = 'Pickup History';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
                             color: _selectedTab == 'Pickup History'
                                 ? AppColors.primary
-                                : AppColors.inputBorder,
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: _selectedTab == 'Pickup History'
+                                  ? AppColors.primary
+                                  : AppColors.inputBorder,
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          'Pickup History',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _selectedTab == 'Pickup History'
-                                ? Colors.white
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
+                          child: Text(
+                            'Pickup History',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _selectedTab == 'Pickup History'
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
             // Status Filter (Processing / Completed / Failed)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedStatus = 'Processing';
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: _selectedStatus == 'Processing'
-                              ? AppColors.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: Text(
-                          'Processing',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedStatus = 'Processing';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
                             color: _selectedStatus == 'Processing'
-                                ? Colors.white
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
+                                ? AppColors.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          child: Text(
+                            'Processing',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _selectedStatus == 'Processing'
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedStatus = 'Completed';
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: _selectedStatus == 'Completed'
-                              ? AppColors.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: Text(
-                          'Completed',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedStatus = 'Completed';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
                             color: _selectedStatus == 'Completed'
-                                ? Colors.white
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
+                                ? AppColors.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          child: Text(
+                            'Completed',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _selectedStatus == 'Completed'
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedStatus = 'Failed';
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: _selectedStatus == 'Failed'
-                              ? AppColors.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: Text(
-                          'Failed',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedStatus = 'Failed';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
                             color: _selectedStatus == 'Failed'
-                                ? Colors.white
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
+                                ? AppColors.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          child: Text(
+                            'Failed',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _selectedStatus == 'Failed'
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
-            const SizedBox(height: 32),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
             // Content based on selected status and whether there are orders
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _getFilteredOrders().isEmpty
-                  ? _buildEmptyState()
-                  : _buildOrdersList(),
+            if (_isLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (filtered.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _buildEmptyState(),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final order = filtered[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    child: _buildOrderCard(order),
+                  );
+                }, childCount: filtered.length),
+              ),
+            // Add bottom spacer so page content doesn't overlap footer/navigation
+            SliverToBoxAdapter(
+              child: SizedBox(height: kBottomNavigationBarHeight + 16),
             ),
           ],
         ),
@@ -461,18 +561,6 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  Widget _buildOrdersList() {
-    final filteredOrders = _getFilteredOrders();
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: filteredOrders.length,
-      itemBuilder: (context, index) {
-        final order = filteredOrders[index];
-        return _buildOrderCard(order);
-      },
-    );
-  }
-
   Widget _buildOrderCard(Order order) {
     double total =
         (order.subTotal ?? 0) +
@@ -507,9 +595,11 @@ class _OrdersPageState extends State<OrdersPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _formatDate(order.createdAt != null
-                        ? DateTime.parse(order.createdAt!)
-                        : DateTime.now()),
+                    _formatDate(
+                      order.createdAt != null
+                          ? DateTime.parse(order.createdAt!)
+                          : DateTime.now(),
+                    ),
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -540,10 +630,7 @@ class _OrdersPageState extends State<OrdersPage> {
           const SizedBox(height: 12),
 
           // Order Items
-          ...(order.items ?? [])
-              .map((item) => _buildOrderItemRow(item))
-              .toList(),
-
+          ...(order.items ?? []).map((item) => _buildOrderItemRow(item)),
 
           const SizedBox(height: 12),
           const Divider(color: AppColors.inputBorder),
@@ -565,7 +652,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       ),
                     ),
                     Text(
-                      order.deliveryAddress??'No address provided',
+                      order.deliveryAddress ?? 'No address provided',
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.onBackground,
@@ -752,8 +839,7 @@ class _OrdersPageState extends State<OrdersPage> {
   double _cos(double angle) => math.cos(angle);
   double _sin(double angle) => math.sin(angle);
 
-
-Future<void> _trackOrder(Order order) async {
+  Future<void> _trackOrder(Order order) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 
@@ -1006,9 +1092,6 @@ Future<void> _trackOrder(Order order) async {
     );
   }
 
-
-
-
   Future<void> _reorder(Order order) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -1032,7 +1115,7 @@ Future<void> _trackOrder(Order order) async {
       final response = await OrderApi.createOrder(
         token: token,
         customerId: customerId,
-        restaurantId: order.restaurantId !,
+        restaurantId: order.restaurantId!,
         deliveryAddressId: order.deliveryAddress!,
         orderItems: order.items!,
         deliveryAddress: order.deliveryAddress!,
@@ -1077,7 +1160,7 @@ Future<void> _trackOrder(Order order) async {
     }
   }
 
- Future<void> _cancelOrder(Order order) async {
+  Future<void> _cancelOrder(Order order) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 
@@ -1152,5 +1235,4 @@ Future<void> _trackOrder(Order order) async {
       }
     }
   }
-
 }

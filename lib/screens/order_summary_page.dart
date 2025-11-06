@@ -2,14 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/order.api.dart';
 import '../models/order.model.dart';
 import '../models/user.model.dart';
 import '../providers/cartproviders.dart';
 import 'address_book_page.dart';
-import 'orders_page.dart';
 import 'payment_method_page.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final String paymentMethod;
@@ -34,7 +35,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   bool _isPlacingOrder = false;
   int? _orderId;
   String? _paymentId;
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   CartProvider get cartProvider =>
       Provider.of<CartProvider>(context, listen: false);
@@ -52,7 +53,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     }
   }
 
- Future<void> _placeOrder() async {
+  Future<void> _placeOrder() async {
     setState(() => _isPlacingOrder = true);
 
     try {
@@ -61,8 +62,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
       if (token == null) throw Exception('Authentication token missing.');
       if (customerId == null) throw Exception('Customer ID is missing.');
-      if (cartProvider.currentRestaurantId == null)
+      if (cartProvider.currentRestaurantId == null) {
         throw Exception('Restaurant ID is missing.');
+      }
 
       // Map payment method
       String paymentMethodCode = _mapPaymentMethod(widget.paymentMethod);
@@ -145,7 +147,37 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         throw Exception(orderResponse.message);
       }
 
-      // ... rest of your code
+      // On success: show message, set flag, and navigate to Orders page
+      if (mounted) {
+        // orderResponse.data is guaranteed non-null here because of the earlier check
+        final createdOrder = orderResponse.data!;
+        // Try common fields for order id (orderId, orderNumber)
+        String? createdOrderId =
+            (createdOrder.orderId?.toString() ?? createdOrder.orderNumber);
+
+        // Save a flag to SharedPreferences so OrdersPage shows success and refreshes
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('order_placed', true);
+          if (createdOrderId != null) {
+            await prefs.setString('order_placed_id', createdOrderId);
+          }
+        } catch (e) {
+          print('⚠️ Could not write order_placed flag: $e');
+        }
+
+        // Show immediate success feedback
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order placed successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Navigate to Orders screen and clear back stack so user lands on orders
+        Navigator.pushNamedAndRemoveUntil(context, '/orders', (route) => false);
+        return;
+      }
     } catch (e, stackTrace) {
       print('❌ Error placing order: $e');
       print('📚 Stack trace: $stackTrace');
@@ -163,8 +195,6 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       if (mounted) setState(() => _isPlacingOrder = false);
     }
   }
-
-
 
   String _mapPaymentMethod(String methodName) {
     switch (methodName) {
@@ -186,7 +216,6 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     }
   }
 
-  @override
   void dispose() {
     _instructionsController.dispose();
     super.dispose();
@@ -543,31 +572,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               ),
             ),
 
-            // Bottom Navigation Bar
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: const BoxDecoration(
-                color: Color(0xFF2A2A2A),
-                border: Border(
-                  top: BorderSide(color: Color(0xFF3A3A3A), width: 1),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildBottomNavItem(Icons.store, 'Store Front', false),
-                  _buildBottomNavItem(Icons.local_offer, 'Prime', false),
-                  _buildBottomNavItem(Icons.receipt_long, 'Orders', false),
-                  _buildBottomNavItem(
-                    Icons.shopping_cart,
-                    'Cart',
-                    false,
-                    hasNotification: true,
-                  ),
-                  _buildBottomNavItem(Icons.more_horiz, 'More', false),
-                ],
-              ),
-            ),
+            // Bottom Navigation Bar (reusable)
+            const SizedBox(height: 8),
+            // Use the shared BottomNavBar widget. Orders is index 2.
+            BottomNavBar(selectedIndex: 2),
           ],
         ),
       ),
@@ -619,59 +627,6 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         ),
         const SizedBox(height: 8),
         content,
-      ],
-    );
-  }
-
-  Widget _buildBottomNavItem(
-    IconData icon,
-    String label,
-    bool isSelected, {
-    bool hasNotification = false,
-  }) {
-    return Stack(
-      children: [
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.green : Colors.grey,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.green : Colors.grey,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-        if (hasNotification)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-              child: const Text(
-                '1',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
       ],
     );
   }

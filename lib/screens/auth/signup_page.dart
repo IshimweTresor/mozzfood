@@ -324,7 +324,7 @@ class _SignUpPageState extends State<SignUpPage> {
               children: [
                 // Illustration (keep your existing illustration code)
                 Center(
-                  child: Container(
+                  child: SizedBox(
                     height: 180,
                     width: 200,
                     child: Stack(

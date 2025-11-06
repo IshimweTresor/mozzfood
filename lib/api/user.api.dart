@@ -630,7 +630,7 @@ class UserApi {
       );
 
       final data = jsonDecode(response.body);
-      print('ResetKey used: ${resetKey}');
+      print('ResetKey used: $resetKey');
 
       if (response.statusCode == 200) {
         return ApiResponse<user_model.User>(
@@ -896,8 +896,9 @@ class UserApi {
   }) async {
     try {
       final body = <String, dynamic>{};
-      if (addressUsageOption != null)
+      if (addressUsageOption != null) {
         body['addressUsageOption'] = addressUsageOption;
+      }
       if (country != null) body['country'] = country;
       if (province != null) body['province'] = province;
 
