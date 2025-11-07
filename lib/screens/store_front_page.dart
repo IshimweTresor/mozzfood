@@ -8,7 +8,8 @@ class StoreFrontPage extends StatefulWidget {
   final String selectedLocationName;
   // Pass selectedLocationName from LocationSelectionPage or HomePage
 
-  const StoreFrontPage({super.key, required this.selectedLocationName});
+  const StoreFrontPage({Key? key, required this.selectedLocationName})
+    : super(key: key);
 
   @override
   State<StoreFrontPage> createState() => _StoreFrontPageState();
@@ -38,207 +39,197 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             // Test button
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(8.0),
-                child: _TestButton(),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/test-restaurants');
+                },
+                child: const Text('Test Restaurant API'),
               ),
             ),
 
             // Top bar with selected location
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Deliver to:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Deliver to:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
                         ),
-                        Row(
-                          children: [
-                            Text(
-                              widget.selectedLocationName,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.onBackground,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.keyboard_arrow_down,
-                              color: AppColors.textSecondary,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    // Rwanda flag icon (mocked)
-                    Container(
-                      width: 32,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(2),
                       ),
-                      child: Stack(
+                      Row(
                         children: [
-                          Container(
-                            width: 32,
-                            height: 12,
-                            color: AppColors.ukraineBlue,
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            child: Container(
-                              width: 32,
-                              height: 12,
-                              color: AppColors.ukraineYellow,
+                          Text(
+                            widget.selectedLocationName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.onBackground,
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: AppColors.textSecondary,
                           ),
                         ],
                       ),
+                    ],
+                  ),
+                  // Rwanda flag icon (mocked)
+                  Container(
+                    width: 32,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                  ],
-                ),
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 12,
+                          color: AppColors.ukraineBlue,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          child: Container(
+                            width: 32,
+                            height: 12,
+                            color: AppColors.ukraineYellow,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 
             // Green open banner
-            SliverToBoxAdapter(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green[700],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.check, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'We are Open 24/7!',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[700],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.check, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'We are Open 24/7!',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Great news, Kigali! Vuba Vuba is now open 24/7, from Thursday to Sunday. From Monday to Wednesday, we stay open late until 1:00 AM. Order anytime, day or night',
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Great news, Kigali! Vuba Vuba is now open 24/7, from Thursday to Sunday. From Monday to Wednesday, we stay open late until 1:00 AM. Order anytime, day or night',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
 
             // Search bar
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Icon(
-                          Icons.search,
-                          color: AppColors.textSecondary,
+                child: Row(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(Icons.search, color: AppColors.textSecondary),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Search for Breakfast',
+                          border: InputBorder.none,
+                          hintStyle: TextStyle(color: AppColors.textSecondary),
                         ),
+                        style: const TextStyle(color: AppColors.onBackground),
                       ),
-                      const Expanded(child: _SearchField()),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
 
             // Section title
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  'All Vuba Breakfast',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.onBackground,
-                  ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'All Vuba Breakfast',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.onBackground,
                 ),
               ),
             ),
 
-            // Store grid (from API) - become sliver
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              sliver: FutureBuilder<List<Vendor>>(
+            // Store grid (from API)
+            Expanded(
+              child: FutureBuilder<List<Vendor>>(
                 future: _vendorsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                        ),
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
                       ),
                     );
                   }
                   if (snapshot.hasError) {
-                    return const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: Text('Failed to load vendors')),
-                    );
+                    return const Center(child: Text('Failed to load vendors'));
                   }
                   final vendors = snapshot.data ?? [];
                   if (vendors.isEmpty) {
-                    return const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: Text('No vendors found')),
-                    );
+                    return const Center(child: Text('No vendors found'));
                   }
-                  return SliverGrid(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final vendor = vendors[index];
-                      return StoreCard(vendor: vendor);
-                    }, childCount: vendors.length),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                          childAspectRatio: 1.1,
-                        ),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: GridView.builder(
+                      itemCount: vendors.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 1.1,
+                          ),
+                      itemBuilder: (context, index) {
+                        final vendor = vendors[index];
+                        return StoreCard(vendor: vendor);
+                      },
+                    ),
                   );
                 },
               ),
@@ -252,7 +243,7 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
 
 class StoreCard extends StatelessWidget {
   final Vendor vendor;
-  const StoreCard({required this.vendor, super.key});
+  const StoreCard({required this.vendor, Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

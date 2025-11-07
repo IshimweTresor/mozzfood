@@ -191,11 +191,10 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => HomePage(
-              selectedLocation: location.name,
-              selectedLocationData: location,
-            ),
+        builder: (context) => HomePage(
+          selectedLocation: location.name,
+          selectedLocationData: location,
+        ),
       ),
     );
   }
@@ -204,11 +203,10 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => LocationDetailsPage(
-              editLocation: location,
-              onLocationUpdated: _fetchUserLocations,
-            ),
+        builder: (context) => LocationDetailsPage(
+          editLocation: location,
+          onLocationUpdated: _fetchUserLocations,
+        ),
       ),
     );
   }
@@ -217,11 +215,10 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => LocationDetailsPage(
-              selectedProvince: province,
-              onLocationUpdated: _fetchUserLocations,
-            ),
+        builder: (context) => LocationDetailsPage(
+          selectedProvince: province,
+          onLocationUpdated: _fetchUserLocations,
+        ),
       ),
     );
   }
@@ -363,311 +360,311 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
           ),
         ],
       ),
-      body:
-          _isLoading
-              ? const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              )
-              : RefreshIndicator(
-                onRefresh: _fetchUserLocations,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'We ask for location upfront for clarity on delivery fees before selecting a merchant.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                          height: 1.4,
-                        ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
+          : RefreshIndicator(
+              onRefresh: _fetchUserLocations,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'We ask for location upfront for clarity on delivery fees before selecting a merchant.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                        height: 1.4,
                       ),
-                      const SizedBox(height: 24),
+                    ),
+                    const SizedBox(height: 24),
 
-                      // Address Usage Option
-                      const Text(
-                        'Address Usage Option:',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.onBackground,
-                        ),
+                    // Address Usage Option
+                    const Text(
+                      'Address Usage Option:',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.onBackground,
                       ),
-                      const SizedBox(height: 12),
+                    ),
+                    const SizedBox(height: 12),
 
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedAddressOption = 'Remember';
-                                  });
-                                  _updatePreferences();
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        _selectedAddressOption == 'Remember'
-                                            ? AppColors.primary
-                                            : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  child: Text(
-                                    'Remember',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color:
-                                          _selectedAddressOption == 'Remember'
-                                              ? Colors.white
-                                              : AppColors.textSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedAddressOption = 'Remember';
+                                });
+                                _updatePreferences();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _selectedAddressOption == 'Remember'
+                                      ? AppColors.primary
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                                child: Text(
+                                  'Remember',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: _selectedAddressOption == 'Remember'
+                                        ? Colors.white
+                                        : AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
                             ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedAddressOption = 'Always Ask';
-                                  });
-                                  _updatePreferences();
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedAddressOption = 'Always Ask';
+                                });
+                                _updatePreferences();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _selectedAddressOption == 'Always Ask'
+                                      ? AppColors.primary
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                                child: Text(
+                                  'Always Ask',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
                                     color:
                                         _selectedAddressOption == 'Always Ask'
-                                            ? AppColors.primary
-                                            : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  child: Text(
-                                    'Always Ask',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color:
-                                          _selectedAddressOption == 'Always Ask'
-                                              ? Colors.white
-                                              : AppColors.textSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                        ? Colors.white
+                                        : AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
+                    ),
 
-                      const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                      // Country Selection
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.inputBorder),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 24,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                              child: Stack(
-                                children: [
-                                  Container(
+                    // Country Selection
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.inputBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: Stack(
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 6,
+                                  color: AppColors.rwandaBlue,
+                                ),
+                                Positioned(
+                                  top: 6,
+                                  child: Container(
                                     width: 24,
-                                    height: 9,
-                                    color: AppColors.ukraineBlue,
+                                    height: 6,
+                                    color: AppColors.rwandaYellow,
                                   ),
-                                  Positioned(
-                                    bottom: 0,
-                                    child: Container(
-                                      width: 24,
-                                      height: 9,
-                                      color: AppColors.ukraineYellow,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _selectedCountry,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.onBackground,
                                 ),
+                                Positioned(
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 24,
+                                    height: 6,
+                                    color: AppColors.rwandaGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _selectedCountry,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.onBackground,
                               ),
                             ),
-                            const Icon(
-                              Icons.keyboard_arrow_down,
-                              color: AppColors.textSecondary,
-                            ),
-                          ],
-                        ),
+                          ),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: AppColors.textSecondary,
+                          ),
+                        ],
                       ),
+                    ),
 
-                      const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                      // Province List
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount:
-                              _rwandaProvinces.length +
-                              (_savedLocations.isNotEmpty ? 1 : 0) +
-                              1,
-                          itemBuilder: (context, index) {
-                            // Add New Location Button
-                            if (index == 0) {
-                              return Column(
-                                children: [
-                                  CustomButton(
-                                    text: 'Add New Location',
-                                    onPressed: () async {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder:
-                                              (context) => LocationDetailsPage(
-                                                onLocationUpdated:
-                                                    _fetchUserLocations,
-                                              ),
-                                        ),
-                                      );
-                                      // Refresh the list when returning from location details
-                                      if (result == true) {
-                                        await _fetchUserLocations();
-                                      }
-                                    },
-                                  ),
-                                  const SizedBox(height: 20),
-                                ],
-                              );
-                            }
-
-                            // Saved Locations Section
-                            if (_savedLocations.isNotEmpty && index == 1) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Saved Locations:',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.onBackground,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'Tap on a location to access the main page',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  ..._savedLocations.asMap().entries.map((
-                                    entry,
-                                  ) {
-                                    int locationIndex = entry.key;
-                                    SavedLocation location = entry.value;
-                                    return _buildSavedLocationCard(
-                                      location,
-                                      locationIndex,
+                    // Province List
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount:
+                            _rwandaProvinces.length +
+                            (_savedLocations.isNotEmpty ? 1 : 0) +
+                            1,
+                        itemBuilder: (context, index) {
+                          // Add New Location Button
+                          if (index == 0) {
+                            return Column(
+                              children: [
+                                CustomButton(
+                                  text: 'Add New Location',
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            LocationDetailsPage(
+                                              onLocationUpdated:
+                                                  _fetchUserLocations,
+                                            ),
+                                      ),
                                     );
-                                  }),
-                                  const SizedBox(height: 20),
-                                  const Text(
-                                    'Or select a province:',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.onBackground,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                ],
-                              );
-                            }
+                                    // Refresh the list when returning from location details
+                                    if (result == true) {
+                                      await _fetchUserLocations();
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+                            );
+                          }
 
-                            // Province List
-                            final provinceIndex =
-                                _savedLocations.isNotEmpty
-                                    ? index - 2
-                                    : index - 1;
-                            if (provinceIndex >= 0 &&
-                                provinceIndex < _rwandaProvinces.length) {
-                              return GestureDetector(
-                                onTap:
-                                    () => _navigateToProvinceSelection(
-                                      _rwandaProvinces[provinceIndex],
-                                    ),
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 16,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.buttonSecondary,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        _rwandaProvinces[provinceIndex],
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppColors.onBackground,
-                                        ),
-                                      ),
-                                      const Icon(
-                                        Icons.chevron_right,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ],
+                          // Saved Locations Section
+                          if (_savedLocations.isNotEmpty && index == 1) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Saved Locations:',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.onBackground,
                                   ),
                                 ),
-                              );
-                            }
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Tap on a location to access the main page',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ..._savedLocations.asMap().entries.map((entry) {
+                                  int locationIndex = entry.key;
+                                  SavedLocation location = entry.value;
+                                  return _buildSavedLocationCard(
+                                    location,
+                                    locationIndex,
+                                  );
+                                }),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'Or select a province:',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.onBackground,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                            );
+                          }
 
-                            return const SizedBox.shrink();
-                          },
-                        ),
+                          // Province List
+                          final provinceIndex = _savedLocations.isNotEmpty
+                              ? index - 2
+                              : index - 1;
+                          if (provinceIndex >= 0 &&
+                              provinceIndex < _rwandaProvinces.length) {
+                            return GestureDetector(
+                              onTap: () => _navigateToProvinceSelection(
+                                _rwandaProvinces[provinceIndex],
+                              ),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.buttonSecondary,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _rwandaProvinces[provinceIndex],
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.onBackground,
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.chevron_right,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          return const SizedBox.shrink();
+                        },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+            ),
     );
   }
 
@@ -718,10 +715,9 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color:
-                        location.isDefault == true
-                            ? AppColors.primary.withOpacity(0.2)
-                            : AppColors.primary.withOpacity(0.1),
+                    color: location.isDefault == true
+                        ? AppColors.primary.withOpacity(0.2)
+                        : AppColors.primary.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(

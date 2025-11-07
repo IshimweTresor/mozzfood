@@ -47,47 +47,37 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Phone number is required';
-    }
+    if (value == null || value.isEmpty) return 'Phone number is required';
+
     // Remove any spaces or special characters for validation
     final cleanPhone = value.replaceAll(RegExp(r'[^\d]'), '');
-    if (_selectedCountry == 'Rwanda' && cleanPhone.length != 9) {
-      return 'Phone number must be 9 digits for Rwanda';
+
+    // Both Rwanda and Mozambique use 9-digit local numbers in this app
+    if ((_selectedCountry == 'Rwanda' || _selectedCountry == 'Mozambique') &&
+        cleanPhone.length != 9) {
+      return 'Phone number must be 9 digits for ${_selectedCountry}';
     }
-    if (_selectedCountry == 'Ukraine' && cleanPhone.length < 9) {
-      return 'Please enter a valid phone number';
-    }
+
     return null;
   }
 
   String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Email is required';
-    }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+    if (value == null || value.isEmpty) return 'Email is required';
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}\$').hasMatch(value)) {
       return 'Please enter a valid email';
     }
     return null;
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password is required';
-    }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
+    if (value == null || value.isEmpty) return 'Password is required';
+    if (value.length < 6) return 'Password must be at least 6 characters';
     return null;
   }
 
   String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please confirm your password';
-    }
-    if (value != _passwordController.text) {
-      return 'Passwords do not match';
-    }
+    if (value == null || value.isEmpty) return 'Please confirm your password';
+    if (value != _passwordController.text) return 'Passwords do not match';
     return null;
   }
 
@@ -98,85 +88,13 @@ class _SignUpPageState extends State<SignUpPage> {
     // Remove country code if it exists
     if (_selectedCountry == 'Rwanda' && cleanPhone.startsWith('250')) {
       cleanPhone = cleanPhone.substring(3);
-    } else if (_selectedCountry == 'Ukraine' && cleanPhone.startsWith('380')) {
+    } else if (_selectedCountry == 'Mozambique' &&
+        cleanPhone.startsWith('258')) {
       cleanPhone = cleanPhone.substring(3);
     }
 
     // Add the country code
     return '${_selectedCountryCode.replaceAll('+', '')}$cleanPhone';
-  }
-
-  Future<void> _handleSignUp() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    if (!_agreeToTerms) {
-      _showErrorMessage('Please agree to the terms and conditions');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final formattedPhone = _formatPhoneNumber(_phoneController.text.trim());
-
-      print('🚀 Attempting registration...');
-      print('📧 Email: ${_emailController.text.trim()}');
-      print('📱 Phone: $formattedPhone');
-      print('👤 Name: ${_nameController.text.trim()}');
-
-      final response = await UserApi.registerUser(
-        fullName: _nameController.text.trim(),
-        location: _selectedCountry, // Use selected country as location
-        phoneNumber: formattedPhone,
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        confirmPassword: _confirmPasswordController.text.trim(),
-        roles: 'CUSTOMER',
-      );
-
-      if (response.success && response.data != null) {
-        print('✅ Registration successful!');
-        print(
-          '   - Requires Verification: ${response.data!.requiresVerification}',
-        );
-        print('   - Customer ID: ${response.data!.data?.customerId}');
-
-        _showSuccessMessage(response.message);
-
-        // Check if verification is required
-        if (response.data!.requiresVerification) {
-          // Navigate to OTP verification page
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder:
-                    (context) => SignupOtpVerificationPage(
-                      email: _emailController.text.trim(),
-                      phoneNumber: formattedPhone,
-                    ),
-              ),
-            );
-          }
-        } else {
-          // Account created and verified, go to login
-          if (mounted) {
-            Navigator.pop(context);
-          }
-        }
-      } else {
-        _showErrorMessage(response.message);
-      }
-    } catch (e) {
-      print('❌ Registration error: $e');
-      _showErrorMessage('Registration failed. Please try again.');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
 
   void _showErrorMessage(String message) {
@@ -225,14 +143,14 @@ class _SignUpPageState extends State<SignUpPage> {
                       Container(
                         width: 32,
                         height: 8,
-                        color: const Color(0xFF00A1DE), // Rwanda blue
+                        color: AppColors.rwandaBlue,
                       ),
                       Positioned(
                         top: 8,
                         child: Container(
                           width: 32,
                           height: 8,
-                          color: const Color(0xFFFAD201), // Rwanda yellow
+                          color: AppColors.rwandaYellow,
                         ),
                       ),
                       Positioned(
@@ -240,7 +158,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         child: Container(
                           width: 32,
                           height: 8,
-                          color: const Color(0xFF00A651), // Rwanda green
+                          color: AppColors.rwandaGreen,
                         ),
                       ),
                     ],
@@ -267,30 +185,49 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                   child: Stack(
                     children: [
-                      Container(
-                        width: 32,
-                        height: 12,
-                        color: AppColors.ukraineBlue,
-                      ),
+                      // Red triangle on the left
                       Positioned(
-                        bottom: 0,
+                        left: 0,
                         child: Container(
-                          width: 32,
-                          height: 12,
-                          color: AppColors.ukraineYellow,
+                          width: 12,
+                          height: 24,
+                          color: AppColors.mozambiqueRed,
+                        ),
+                      ),
+                      // Main horizontal stripes
+                      Positioned(
+                        left: 12,
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 6,
+                              color: AppColors.mozambiqueGreen,
+                            ),
+                            Container(
+                              width: 20,
+                              height: 6,
+                              color: AppColors.mozambiqueBlack,
+                            ),
+                            Container(
+                              width: 20,
+                              height: 6,
+                              color: AppColors.mozambiqueYellow,
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
                 title: const Text(
-                  'Ukraine (+380)',
+                  'Mozambique (+258)',
                   style: TextStyle(color: AppColors.onBackground),
                 ),
                 onTap: () {
                   setState(() {
-                    _selectedCountry = 'Ukraine';
-                    _selectedCountryCode = '+380';
+                    _selectedCountry = 'Mozambique';
+                    _selectedCountryCode = '+258';
                   });
                   Navigator.pop(context);
                 },
@@ -300,6 +237,57 @@ class _SignUpPageState extends State<SignUpPage> {
         );
       },
     );
+  }
+
+  // _showSuccessMessage and _showCountryPicker already defined above.
+  // Next: sign-up handler
+  Future<void> _handleSignUp() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (!_agreeToTerms) {
+      _showErrorMessage('Please agree to the terms and conditions');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final formattedPhone = _formatPhoneNumber(_phoneController.text.trim());
+
+      final response = await UserApi.registerUser(
+        fullName: _nameController.text.trim(),
+        location: _selectedCountry,
+        phoneNumber: formattedPhone,
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        confirmPassword: _confirmPasswordController.text.trim(),
+        roles: 'CUSTOMER',
+      );
+
+      if (response.success && response.data != null) {
+        _showSuccessMessage(response.message);
+        if (response.data!.requiresVerification) {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SignupOtpVerificationPage(
+                  email: _emailController.text.trim(),
+                  phoneNumber: formattedPhone,
+                ),
+              ),
+            );
+          }
+        } else {
+          if (mounted) Navigator.pop(context);
+        }
+      } else {
+        _showErrorMessage(response.message);
+      }
+    } catch (e) {
+      _showErrorMessage('Registration failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -468,50 +456,97 @@ class _SignUpPageState extends State<SignUpPage> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(2),
                             ),
-                            child:
-                                _selectedCountry == 'Rwanda'
-                                    ? Stack(
-                                      children: [
-                                        Container(
+                            child: _selectedCountry == 'Rwanda'
+                                ? Stack(
+                                    children: [
+                                      Container(
+                                        width: 20,
+                                        height: 5,
+                                        color: const Color(0xFF00A1DE),
+                                      ),
+                                      Positioned(
+                                        top: 5,
+                                        child: Container(
                                           width: 20,
                                           height: 5,
-                                          color: const Color(0xFF00A1DE),
+                                          color: const Color(0xFFFAD201),
                                         ),
-                                        Positioned(
-                                          top: 5,
-                                          child: Container(
-                                            width: 20,
-                                            height: 5,
-                                            color: const Color(0xFFFAD201),
-                                          ),
-                                        ),
-                                        Positioned(
-                                          bottom: 0,
-                                          child: Container(
-                                            width: 20,
-                                            height: 5,
-                                            color: const Color(0xFF00A651),
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                    : Stack(
-                                      children: [
-                                        Container(
+                                      ),
+                                      Positioned(
+                                        bottom: 0,
+                                        child: Container(
                                           width: 20,
-                                          height: 7.5,
-                                          color: AppColors.ukraineBlue,
+                                          height: 5,
+                                          color: const Color(0xFF00A651),
                                         ),
-                                        Positioned(
-                                          bottom: 0,
-                                          child: Container(
-                                            width: 20,
-                                            height: 7.5,
-                                            color: AppColors.ukraineYellow,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
+                                  )
+                                : (_selectedCountry == 'Mozambique'
+                                      ? Stack(
+                                          children: [
+                                            // small red stripe on left
+                                            Positioned(
+                                              left: 0,
+                                              child: Container(
+                                                width: 6,
+                                                height: 15,
+                                                color: AppColors.mozambiqueRed,
+                                              ),
+                                            ),
+                                            Positioned(
+                                              left: 6,
+                                              child: Column(
+                                                children: [
+                                                  Container(
+                                                    width: 14,
+                                                    height: 5,
+                                                    color: AppColors
+                                                        .mozambiqueGreen,
+                                                  ),
+                                                  Container(
+                                                    width: 14,
+                                                    height: 5,
+                                                    color: AppColors
+                                                        .mozambiqueBlack,
+                                                  ),
+                                                  Container(
+                                                    width: 14,
+                                                    height: 5,
+                                                    color: AppColors
+                                                        .mozambiqueYellow,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : // fallback to Rwanda colors
+                                        Stack(
+                                          children: [
+                                            Container(
+                                              width: 20,
+                                              height: 5,
+                                              color: AppColors.rwandaBlue,
+                                            ),
+                                            Positioned(
+                                              top: 5,
+                                              child: Container(
+                                                width: 20,
+                                                height: 5,
+                                                color: AppColors.rwandaYellow,
+                                              ),
+                                            ),
+                                            Positioned(
+                                              bottom: 0,
+                                              child: Container(
+                                                width: 20,
+                                                height: 5,
+                                                color: AppColors.rwandaGreen,
+                                              ),
+                                            ),
+                                          ],
+                                        )),
                           ),
                           const SizedBox(width: 6),
                           Text(

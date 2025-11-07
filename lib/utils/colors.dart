@@ -34,6 +34,18 @@ class AppColors {
   static const Color warning = Color(0xFFFFC107); // Warning yellow
 
   // Country flag and misc
+  // Rwanda flag colors (approx)
+  static const Color rwandaBlue = Color(0xFF00A1DE);
+  static const Color rwandaYellow = Color(0xFFFAD201);
+  static const Color rwandaGreen = Color(0xFF00A651);
+
+  // Mozambique flag colors (approx)
+  static const Color mozambiqueGreen = Color(0xFF007A3D);
+  static const Color mozambiqueBlack = Color(0xFF000000);
+  static const Color mozambiqueYellow = Color(0xFFFFD100);
+  static const Color mozambiqueRed = Color(0xFFDE2110);
+
+  // Legacy / previously used Ukraine colors (left for compatibility)
   static const Color ukraineBlue = Color(0xFF005BBB);
   static const Color ukraineYellow = Color(0xFFFFD500);
 }

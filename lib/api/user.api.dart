@@ -27,34 +27,30 @@ class UserApi {
         final data = jsonDecode(response.body);
         // The backend returns a map with a 'data' field containing the list
         final locationsList = data['data'] as List;
-        final locations =
-            locationsList.map((json) {
-              // Manually map backend fields to model fields
-              return user_model.SavedLocation(
-                id: json['customerAddressId']?.toString(),
-                name:
-                    json['areaName'] ??
-                    'Address', // Use areaName as name or fallback
-                address:
-                    json['street'] ??
-                    'No Street', // Use street as address or fallback
-                lat:
-                    json['latitude'] != null
-                        ? (json['latitude'] as num).toDouble()
-                        : 0.0,
-                lng:
-                    json['longitude'] != null
-                        ? (json['longitude'] as num).toDouble()
-                        : 0.0,
-                phone: json['localContactNumber'] as String?,
-                imageUrl: json['imageUrl'] as String?,
-                isDefault: json['isDefault'] as bool? ?? false,
-                createdAt:
-                    json['createdAt'] == null
-                        ? null
-                        : DateTime.parse(json['createdAt'] as String),
-              );
-            }).toList();
+        final locations = locationsList.map((json) {
+          // Manually map backend fields to model fields
+          return user_model.SavedLocation(
+            id: json['customerAddressId']?.toString(),
+            name:
+                json['areaName'] ??
+                'Address', // Use areaName as name or fallback
+            address:
+                json['street'] ??
+                'No Street', // Use street as address or fallback
+            lat: json['latitude'] != null
+                ? (json['latitude'] as num).toDouble()
+                : 0.0,
+            lng: json['longitude'] != null
+                ? (json['longitude'] as num).toDouble()
+                : 0.0,
+            phone: json['localContactNumber'] as String?,
+            imageUrl: json['imageUrl'] as String?,
+            isDefault: json['isDefault'] as bool? ?? false,
+            createdAt: json['createdAt'] == null
+                ? null
+                : DateTime.parse(json['createdAt'] as String),
+          );
+        }).toList();
         return ApiResponse<List<user_model.SavedLocation>>(
           success: true,
           data: locations,
@@ -308,11 +304,25 @@ class UserApi {
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         // ✅ Accept both 200 and 201
-        return ApiResponse<LoginResponse>(
-          success: true,
-          message: data['message'],
-          data: LoginResponse.fromJson(data),
-        );
+        // Try to parse the LoginResponse but be defensive: backend may return
+        // only a message without the expected fields. Avoid throwing a
+        // TypeError when required fields are null by catching parsing errors.
+        try {
+          final loginData = LoginResponse.fromJson(data);
+          return ApiResponse<LoginResponse>(
+            success: true,
+            message: data['message'] ?? 'Verification successful',
+            data: loginData,
+          );
+        } catch (parseError) {
+          print('⚠️ VerifyCode: failed to parse LoginResponse: $parseError');
+          // Return success based on HTTP status but without parsed data.
+          return ApiResponse<LoginResponse>(
+            success: true,
+            message: data['message'] ?? 'Verification succeeded (no payload)',
+            data: null,
+          );
+        }
       } else {
         return ApiResponse<LoginResponse>(
           success: false,
@@ -914,10 +924,9 @@ class UserApi {
         return ApiResponse<Map<String, dynamic>>(
           success: true,
           message: data['message'],
-          data:
-              (data['preferences'] is Map)
-                  ? Map<String, dynamic>.from(data['preferences'])
-                  : <String, dynamic>{},
+          data: (data['preferences'] is Map)
+              ? Map<String, dynamic>.from(data['preferences'])
+              : <String, dynamic>{},
         );
       } else {
         return ApiResponse<Map<String, dynamic>>(
