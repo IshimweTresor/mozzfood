@@ -98,7 +98,7 @@ class UserApi {
   static Future<ApiResponse<dynamic>> createAddresses({
     required String token,
     required int customerId,
-    required int cityId,
+    int? cityId,
     required String street,
     required String areaName,
     required String houseNumber,
@@ -137,7 +137,6 @@ class UserApi {
       // Build query parameters - all parameters go in the URL
       final Map<String, String> queryParams = {
         'customerId': customerId.toString(),
-        'cityId': cityId.toString(),
         'street': street,
         'areaName': areaName,
         'houseNumber': houseNumber,
@@ -150,6 +149,11 @@ class UserApi {
         'isDefault': isDefault.toString(),
       };
 
+      // Include cityId only when provided and greater than zero.
+      if (cityId != null && cityId > 0) {
+        queryParams['cityId'] = cityId.toString();
+      }
+
       final uri = Uri.parse(
         '$locationBaseUrl/createAddresses',
       ).replace(queryParameters: queryParams);
@@ -160,7 +164,7 @@ class UserApi {
       final request = http.MultipartRequest('POST', uri);
       request.headers.addAll({'Authorization': 'Bearer $token'});
 
-      print('� Request fields: ${request.fields}');
+      print('Request fields: ${request.fields}');
 
       // Add image file if provided
       if (imagePath != null && imagePath.isNotEmpty) {
@@ -460,6 +464,84 @@ class UserApi {
       }
     } catch (e) {
       return ApiResponse<user_model.User>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+  // Get all countries from backend
+  static Future<ApiResponse<List<Map<String, dynamic>>>> getAllCountries({
+    String? token,
+  }) async {
+    try {
+      final uri = Uri.parse('$locationBaseUrl/getAllCountries');
+      final response = await http.get(uri, headers: _getHeaders(token: token));
+      print('🔔 getAllCountries raw response: status=${response.statusCode}');
+      print('🔔 getAllCountries body: ${response.body}');
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final list = data['data'] as List? ?? [];
+        // Ensure items are maps
+        final parsed = list.map<Map<String, dynamic>>((e) {
+          if (e is Map) return Map<String, dynamic>.from(e as Map);
+          return <String, dynamic>{};
+        }).toList();
+        return ApiResponse<List<Map<String, dynamic>>>(
+          success: true,
+          data: parsed,
+          message: data['message'] ?? 'Countries fetched',
+        );
+      } else {
+        return ApiResponse<List<Map<String, dynamic>>>(
+          success: false,
+          message: data['message'] ?? 'Failed to fetch countries',
+        );
+      }
+    } catch (e) {
+      print('❌ getAllCountries Error: $e');
+      return ApiResponse<List<Map<String, dynamic>>>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+  // Get cities by country id
+  static Future<ApiResponse<List<Map<String, dynamic>>>> getCitiesByCountry({
+    required int countryId,
+    String? token,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '$locationBaseUrl/getCitiesByCountry',
+      ).replace(queryParameters: {'countryId': countryId.toString()});
+      final response = await http.get(uri, headers: _getHeaders(token: token));
+      print(
+        '🔔 getCitiesByCountry raw response (countryId=$countryId): status=${response.statusCode}',
+      );
+      print('🔔 getCitiesByCountry body: ${response.body}');
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final list = data['data'] as List? ?? [];
+        final parsed = list.map<Map<String, dynamic>>((e) {
+          if (e is Map) return Map<String, dynamic>.from(e as Map);
+          return <String, dynamic>{};
+        }).toList();
+        return ApiResponse<List<Map<String, dynamic>>>(
+          success: true,
+          data: parsed,
+          message: data['message'] ?? 'Cities fetched',
+        );
+      } else {
+        return ApiResponse<List<Map<String, dynamic>>>(
+          success: false,
+          message: data['message'] ?? 'Failed to fetch cities',
+        );
+      }
+    } catch (e) {
+      print('❌ getCitiesByCountry Error: $e');
+      return ApiResponse<List<Map<String, dynamic>>>(
         success: false,
         message: 'Network error: ${e.toString()}',
       );

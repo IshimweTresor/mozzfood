@@ -11,6 +11,7 @@ import '../providers/cartproviders.dart';
 import 'address_book_page.dart';
 import 'payment_method_page.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/safe_network_image.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final String paymentMethod;
@@ -439,8 +440,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                                     )
                                   : ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
-                                        menuItem.imageUrl!,
+                                      child: SafeNetworkImage(
+                                        url: menuItem.imageUrl!,
                                         width: 50,
                                         height: 50,
                                         fit: BoxFit.cover,

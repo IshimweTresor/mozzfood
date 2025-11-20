@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/cartproviders.dart';
 import 'address_book_page.dart';
 import '../models/user.model.dart';
+import '../widgets/safe_network_image.dart';
 
 class CartPage extends StatelessWidget {
   final SavedLocation? selectedLocation;
@@ -99,227 +100,219 @@ class CartPage extends StatelessWidget {
             const SizedBox(height: 20),
             // Cart Items List
             Expanded(
-              child:
-                  cartItems.isEmpty
-                      ? const Center(
-                        child: Text(
-                          'Your cart is empty.',
-                          style: TextStyle(color: Colors.white70, fontSize: 18),
-                        ),
-                      )
-                      : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        itemCount: cartItems.length,
-                        itemBuilder: (context, index) {
-                          final cartItem = cartItems[index];
-                          final menuItem = cartItem.item;
-                          return Column(
-                            children: [
-                              Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 8,
-                                ),
-                                child: Row(
-                                  children: [
-                                    // Item Image
-                                    Container(
-                                      width: 50,
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(25),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(25),
-                                        child:
-                                            menuItem.imageUrl.isEmpty
-                                                ? const Icon(
+              child: cartItems.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Your cart is empty.',
+                        style: TextStyle(color: Colors.white70, fontSize: 18),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      itemCount: cartItems.length,
+                      itemBuilder: (context, index) {
+                        final cartItem = cartItems[index];
+                        final menuItem = cartItem.item;
+                        return Column(
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  // Item Image
+                                  Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(25),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(25),
+                                      child: menuItem.imageUrl.isEmpty
+                                          ? const Icon(
+                                              Icons.fastfood,
+                                              color: Colors.grey,
+                                              size: 25,
+                                            )
+                                          : SafeNetworkImage(
+                                              url: menuItem.imageUrl,
+                                              width: 50,
+                                              height: 50,
+                                              fit: BoxFit.cover,
+                                              placeholder: Container(
+                                                width: 50,
+                                                height: 50,
+                                                color: Colors.grey[300],
+                                                child: const Icon(
                                                   Icons.fastfood,
                                                   color: Colors.grey,
                                                   size: 25,
-                                                )
-                                                : Image.network(
-                                                  menuItem.imageUrl,
-                                                  width: 50,
-                                                  height: 50,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (
-                                                    context,
-                                                    error,
-                                                    stackTrace,
-                                                  ) {
-                                                    return Container(
-                                                      width: 50,
-                                                      height: 50,
-                                                      color: Colors.grey[300],
-                                                      child: const Icon(
-                                                        Icons.fastfood,
-                                                        color: Colors.grey,
-                                                        size: 25,
-                                                      ),
-                                                    );
-                                                  },
                                                 ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    // Item Details
-                                    Expanded(
-                                      flex: 2,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            menuItem.name,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 18,
+                                              ),
                                             ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            menuItem.description,
-                                            style: const TextStyle(
-                                              color: Color(0xFF9E9E9E),
-                                              fontSize: 14,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                            maxLines: 2,
-                                          ),
-                                        ],
-                                      ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    // Price
-                                    Flexible(
-                                      child: Text(
-                                        'RWF ${menuItem.price}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 16,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Quantity and Action Controls
-                              Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const SizedBox(width: 66),
-                                    // Quantity Controls
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  // Item Details
+                                  Expanded(
+                                    flex: 2,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        GestureDetector(
-                                          onTap: () {
-                                            if (cartItem.quantity > 1) {
-                                              cartProvider.updateQuantity(
-                                                menuItem.id,
-                                                cartItem.quantity - 1,
-                                              );
-                                            }
-                                          },
-                                          child: Container(
-                                            width: 32,
-                                            height: 32,
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF2A2A2A),
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              border: Border.all(
-                                                color: const Color(0xFF3A3A3A),
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: const Icon(
-                                              Icons.remove,
-                                              color: Colors.white,
-                                              size: 18,
-                                            ),
+                                        Text(
+                                          menuItem.name,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 18,
                                           ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        Container(
-                                          margin: const EdgeInsets.symmetric(
-                                            horizontal: 16,
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          menuItem.description,
+                                          style: const TextStyle(
+                                            color: Color(0xFF9E9E9E),
+                                            fontSize: 14,
                                           ),
-                                          child: Text(
-                                            '${cartItem.quantity}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 18,
-                                            ),
-                                          ),
-                                        ),
-                                        GestureDetector(
-                                          onTap: () {
-                                            cartProvider.updateQuantity(
-                                              menuItem.id,
-                                              cartItem.quantity + 1,
-                                            );
-                                          },
-                                          child: Container(
-                                            width: 32,
-                                            height: 32,
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF2A2A2A),
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              border: Border.all(
-                                                color: const Color(0xFF3A3A3A),
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: const Icon(
-                                              Icons.add,
-                                              color: Colors.white,
-                                              size: 18,
-                                            ),
-                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 2,
                                         ),
                                       ],
                                     ),
-                                    const Spacer(),
-                                    // Delete Action
-                                    GestureDetector(
-                                      onTap: () {
-                                        cartProvider.removeFromCart(
-                                          menuItem.id,
-                                        );
-                                      },
-                                      child: const Icon(
-                                        Icons.delete_outline,
-                                        color: Colors.red,
-                                        size: 22,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Price
+                                  Flexible(
+                                    child: Text(
+                                      'RWF ${menuItem.price}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 8),
-                              // Divider
-                              Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                ),
-                                height: 1,
-                                color: const Color(0xFF2A2A2A),
+                            ),
+                            // Quantity and Action Controls
+                            Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 20,
                               ),
-                            ],
-                          );
-                        },
-                      ),
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 66),
+                                  // Quantity Controls
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () {
+                                          if (cartItem.quantity > 1) {
+                                            cartProvider.updateQuantity(
+                                              menuItem.id,
+                                              cartItem.quantity - 1,
+                                            );
+                                          }
+                                        },
+                                        child: Container(
+                                          width: 32,
+                                          height: 32,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF2A2A2A),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(0xFF3A3A3A),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.remove,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                        ),
+                                        child: Text(
+                                          '${cartItem.quantity}',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 18,
+                                          ),
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () {
+                                          cartProvider.updateQuantity(
+                                            menuItem.id,
+                                            cartItem.quantity + 1,
+                                          );
+                                        },
+                                        child: Container(
+                                          width: 32,
+                                          height: 32,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF2A2A2A),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(0xFF3A3A3A),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.add,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  // Delete Action
+                                  GestureDetector(
+                                    onTap: () {
+                                      cartProvider.removeFromCart(menuItem.id);
+                                    },
+                                    child: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                      size: 22,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // Divider
+                            Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              height: 1,
+                              color: const Color(0xFF2A2A2A),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
             ),
             // Order Summary and Checkout
             Container(
@@ -356,51 +349,49 @@ class CartPage extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar:
-          cartItems.isEmpty
-              ? null
-              : SafeArea(
+      bottomNavigationBar: cartItems.isEmpty
+          ? null
+          : SafeArea(
+              child: Container(
+                padding: const EdgeInsets.all(20),
                 child: Container(
-                  padding: const EdgeInsets.all(20),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.lock, color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => AddressBookPage(
-                                      selectedLocation:
-                                          selectedLocation, // Pass the SavedLocation object
-                                    ),
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.lock, color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddressBookPage(
+                                selectedLocation:
+                                    selectedLocation, // Pass the SavedLocation object
                               ),
-                            );
-                          },
-                          child: const Text(
-                            'Checkout',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
                             ),
+                          );
+                        },
+                        child: const Text(
+                          'Checkout',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ),
     );
   }
 
@@ -434,34 +425,27 @@ class CartPage extends StatelessWidget {
   void _showClearAllDialog(BuildContext context, CartProvider cartProvider) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: const Color(0xFF2A2A2A),
-            title: const Text(
-              'Clear Cart',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: const Text(
-              'Are you sure you want to clear all items from cart?',
-              style: TextStyle(color: Colors.grey),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  cartProvider.clearCart();
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  'Clear All',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        title: const Text('Clear Cart', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Are you sure you want to clear all items from cart?',
+          style: TextStyle(color: Colors.grey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () {
+              cartProvider.clearCart();
+              Navigator.pop(context);
+            },
+            child: const Text('Clear All', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 }

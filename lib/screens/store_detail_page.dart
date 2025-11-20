@@ -5,6 +5,7 @@ import '../models/menuItem.model.dart' hide Vendor;
 import '../api/menuItem.api.dart';
 import 'package:provider/provider.dart';
 import '../providers/cartproviders.dart';
+import '../widgets/safe_network_image.dart';
 
 class StoreDetailPage extends StatefulWidget {
   final Vendor vendor;
@@ -249,7 +250,12 @@ class _ProductListItem extends StatelessWidget {
       child: ListTile(
         leading: (image == null || image!.isEmpty)
             ? const Icon(Icons.shopping_bag, color: AppColors.primary)
-            : Image.network(image!, width: 48, height: 48, fit: BoxFit.cover),
+            : SafeNetworkImage(
+                url: image,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+              ),
         title: Text(
           name,
           style: const TextStyle(
@@ -348,8 +354,8 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
                         )
                       : ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            widget.menuItem.imageUrl,
+                          child: SafeNetworkImage(
+                            url: widget.menuItem.imageUrl,
                             height: 140,
                             width: 140,
                             fit: BoxFit.cover,

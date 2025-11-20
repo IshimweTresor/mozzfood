@@ -71,12 +71,17 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
                       ),
                       Row(
                         children: [
-                          Text(
-                            widget.selectedLocationName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.onBackground,
+                          Flexible(
+                            flex: 0,
+                            child: Text(
+                              widget.selectedLocationName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.onBackground,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -337,7 +342,9 @@ class StoreCard extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                       const SizedBox(width: 4),
-                      Expanded(
+                      Flexible(
+                        flex: 0,
+                        fit: FlexFit.loose,
                         child: Text(
                           vendor.location ?? 'No location',
                           style: const TextStyle(
@@ -359,11 +366,16 @@ class StoreCard extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        vendor.cuisineType ?? 'Various Cuisine',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Text(
+                          vendor.cuisineType ?? 'Various Cuisine',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const Spacer(),

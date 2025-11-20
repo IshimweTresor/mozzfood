@@ -4,11 +4,11 @@ import '../api/user.api.dart';
 import '../models/user.model.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
-import 'home_page.dart';
+import 'store_front_page.dart';
 import 'location_details_page.dart';
 import 'auth/login_page.dart';
 // import '../response/user_location_responses.dart';
-// import 'map_location_picker_page.dart';
+import 'map_location_picker_page.dart';
 
 class LocationSelectionPage extends StatefulWidget {
   const LocationSelectionPage({super.key});
@@ -19,21 +19,29 @@ class LocationSelectionPage extends StatefulWidget {
 
 class _LocationSelectionPageState extends State<LocationSelectionPage> {
   String _selectedAddressOption = 'Always Ask';
-  final String _selectedCountry = 'RWANDA';
-  final String _selectedProvince = 'KIGALI';
+  String _selectedCountry = 'Rwanda';
+  String _selectedProvince = 'Kigali';
   List<SavedLocation> _savedLocations = [];
   // Removed unused _preferences field
   bool _isLoading = true;
   String? _authToken;
 
-  final List<String> _rwandaProvinces = [
-    'KIGALI',
-    'MUSANZE',
-    'RUBAVU',
-    'RUSIZI',
-  ];
+  final Map<String, List<String>> _countryProvinces = {
+    'Rwanda': ['Kigali', 'Musanze', 'Rubavu', 'Rusizi'],
+    'Mozambique': [
+      'Maputo',
+      'Gaza',
+      'Inhambane',
+      'Sofala',
+      'Manica',
+      'Zambezia',
+      'Nampula',
+      'Niassa',
+      'Cabo Delgado',
+      'Tete',
+    ],
+  };
 
-  @override
   void initState() {
     super.initState();
     _loadUserData();
@@ -187,14 +195,12 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
   }
 
   void _selectLocation(SavedLocation location) {
-    // Navigate to home page with selected location
-    Navigator.push(
+    // Navigate to store front page with selected location
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => HomePage(
-          selectedLocation: location.name,
-          selectedLocationData: location,
-        ),
+        builder: (context) =>
+            StoreFrontPage(selectedLocationName: location.name),
       ),
     );
   }
@@ -333,6 +339,63 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     );
   }
 
+  void _showCountryPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Select Country',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.onBackground,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                title: const Text(
+                  'Rwanda (+250)',
+                  style: TextStyle(color: AppColors.onBackground),
+                ),
+                onTap: () {
+                  setState(() {
+                    _selectedCountry = 'Rwanda';
+                    _selectedProvince = _countryProvinces['Rwanda']!.first;
+                  });
+                  _updatePreferences();
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                title: const Text(
+                  'Mozambique (+258)',
+                  style: TextStyle(color: AppColors.onBackground),
+                ),
+                onTap: () {
+                  setState(() {
+                    _selectedCountry = 'Mozambique';
+                    _selectedProvince = _countryProvinces['Mozambique']!.first;
+                  });
+                  _updatePreferences();
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -368,8 +431,8 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
               onRefresh: _fetchUserLocations,
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     const Text(
                       'We ask for location upfront for clarity on delivery fees before selecting a merchant.',
@@ -470,197 +533,150 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
 
                     // Country Selection
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
+                      child: InkWell(
+                        onTap: _showCountryPicker,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.inputBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 24,
-                            height: 18,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                            child: Stack(
-                              children: [
-                                Container(
-                                  width: 24,
-                                  height: 6,
-                                  color: AppColors.rwandaBlue,
-                                ),
-                                Positioned(
-                                  top: 6,
-                                  child: Container(
-                                    width: 24,
-                                    height: 6,
-                                    color: AppColors.rwandaYellow,
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 0,
-                                  child: Container(
-                                    width: 24,
-                                    height: 6,
-                                    color: AppColors.rwandaGreen,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _selectedCountry,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.onBackground,
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.inputBorder),
+                          ),
+                          child: Row(
+                            children: [
+                              // Small flag placeholder — change based on country
+                              Container(
+                                width: 24,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(2),
+                                  color: Colors.transparent,
+                                ),
+                                child: _selectedCountry == 'Rwanda'
+                                    ? Stack(
+                                        children: [
+                                          Container(
+                                            width: 24,
+                                            height: 6,
+                                            color: AppColors.rwandaBlue,
+                                          ),
+                                          Positioned(
+                                            top: 6,
+                                            child: Container(
+                                              width: 24,
+                                              height: 6,
+                                              color: AppColors.rwandaYellow,
+                                            ),
+                                          ),
+                                          Positioned(
+                                            bottom: 0,
+                                            child: Container(
+                                              width: 24,
+                                              height: 6,
+                                              color: AppColors.rwandaGreen,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Container(
+                                        width: 24,
+                                        height: 18,
+                                        color: AppColors.surface,
+                                        child: Center(
+                                          child: Text(
+                                            _selectedCountry.substring(0, 1),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                               ),
-                            ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _selectedCountry,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.onBackground,
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.keyboard_arrow_down,
+                                color: AppColors.textSecondary,
+                              ),
+                            ],
                           ),
-                          const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: AppColors.textSecondary,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
 
                     const SizedBox(height: 24),
 
-                    // Province List
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount:
-                            _rwandaProvinces.length +
-                            (_savedLocations.isNotEmpty ? 1 : 0) +
-                            1,
-                        itemBuilder: (context, index) {
-                          // Add New Location Button
-                          if (index == 0) {
-                            return Column(
-                              children: [
-                                CustomButton(
-                                  text: 'Add New Location',
-                                  onPressed: () async {
-                                    final result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            LocationDetailsPage(
-                                              onLocationUpdated:
-                                                  _fetchUserLocations,
-                                            ),
-                                      ),
-                                    );
-                                    // Refresh the list when returning from location details
-                                    if (result == true) {
-                                      await _fetchUserLocations();
-                                    }
-                                  },
-                                ),
-                                const SizedBox(height: 20),
-                              ],
-                            );
-                          }
+                    // Add / Pick Location button — opens map pre-centered on selected country
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MapLocationPickerPage(
+                              initialCountry: _selectedCountry,
+                            ),
+                          ),
+                        );
 
-                          // Saved Locations Section
-                          if (_savedLocations.isNotEmpty && index == 1) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Saved Locations:',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.onBackground,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Tap on a location to access the main page',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                ..._savedLocations.asMap().entries.map((entry) {
-                                  int locationIndex = entry.key;
-                                  SavedLocation location = entry.value;
-                                  return _buildSavedLocationCard(
-                                    location,
-                                    locationIndex,
-                                  );
-                                }),
-                                const SizedBox(height: 20),
-                                const Text(
-                                  'Or select a province:',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.onBackground,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                            );
-                          }
-
-                          // Province List
-                          final provinceIndex = _savedLocations.isNotEmpty
-                              ? index - 2
-                              : index - 1;
-                          if (provinceIndex >= 0 &&
-                              provinceIndex < _rwandaProvinces.length) {
-                            return GestureDetector(
-                              onTap: () => _navigateToProvinceSelection(
-                                _rwandaProvinces[provinceIndex],
-                              ),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.buttonSecondary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _rwandaProvinces[provinceIndex],
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.onBackground,
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.chevron_right,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-
-                          return const SizedBox.shrink();
-                        },
+                        // If the map picker created/returned a location, refresh list
+                        if (result != null) {
+                          // Refresh saved locations from backend
+                          await _fetchUserLocations();
+                          _showSuccessMessage('Location created successfully');
+                        }
+                      },
+                      icon: const Icon(Icons.add_location_alt_outlined),
+                      label: const Text('Add / Pick Location on Map'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
+                    const SizedBox(height: 20),
+
+                    // Show saved locations under the button
+                    if (_savedLocations.isNotEmpty) ...[
+                      const Text(
+                        'Saved Locations',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.onBackground,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...List.generate(
+                        _savedLocations.length,
+                        (i) => _buildSavedLocationCard(_savedLocations[i], i),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'No saved locations yet. Use the button above to add one.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
                   ],
                 ),
               ),
