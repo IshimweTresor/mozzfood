@@ -89,39 +89,40 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Deliver to:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Flexible(
-                            flex: 0,
-                            child: Text(
-                              widget.selectedLocationName,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.onBackground,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.keyboard_arrow_down,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Deliver to:',
+                          style: TextStyle(
+                            fontSize: 14,
                             color: AppColors.textSecondary,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.selectedLocationName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.onBackground,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: AppColors.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   // Rwanda flag icon (mocked)
                   Container(

@@ -392,6 +392,26 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
             }
           }
         }
+        // Heuristic: map common Maputo / Mozambique place names to a default
+        // backend cityId so the client behaves like the Rwanda flow
+        // (which maps Kigali -> cityId=1). We choose `2` as the default
+        // Maputo cityId here; change if your backend uses a different id.
+        if (detectedCountryLower.contains('mozambique') ||
+            detectedCountryLower.contains('moz')) {
+          for (final cand in candidates) {
+            if (cand.contains('maputo') ||
+                cand.contains('zona sul') ||
+                cand.contains('zona norte') ||
+                cand.contains('zona') ||
+                cand.contains('central')) {
+              const defaultMaputoCityId = 2;
+              print(
+                '🛠️ Heuristic: mapping "$cand" -> Maputo (cityId=$defaultMaputoCityId)',
+              );
+              return defaultMaputoCityId;
+            }
+          }
+        }
       } catch (_) {}
 
       // If no match but showPickerOnFail is true, present a picker. Prefer
@@ -554,7 +574,7 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
       // If server returned 400 (city id not found) allow the user to enter a
       // numeric cityId and retry as a quick client-side workaround.
       if (resp != null && resp.statusCode == 400) {
-        // Try resolving a city id by showing backend-provided cities.
+        // Try resolving a city id by showing backend-provided cities first.
         final pickedCityId = await _resolveCityId(
           areaName,
           geocode,
@@ -582,7 +602,32 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
           }
         }
 
-        // If we still couldn't resolve, show an informative error (no manual numeric prompt)
+        // If backend cities are unavailable, prompt the user to enter a numeric
+        // cityId manually (useful when server-side static resources are missing).
+        final manualId = await _promptForNumericCityId();
+        if (manualId != null) {
+          final newParams = Map<String, String>.from(params);
+          newParams['cityId'] = manualId.toString();
+          setState(() => _loading = true);
+          final retryResp = await _createAddressOnBackend(newParams);
+          setState(() => _loading = false);
+          if (retryResp != null &&
+              retryResp.statusCode >= 200 &&
+              retryResp.statusCode < 300) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Address created successfully')),
+            );
+            Navigator.pop(context, {
+              'lat': lat,
+              'lon': lon,
+              'address': displayName,
+            });
+            return;
+          }
+        }
+
+        // If we still couldn't resolve, show an informative error.
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Failed to resolve city — address not created.'),
@@ -604,9 +649,67 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
     String displayName,
   ) async {
     // Manual numeric city id entry removed. We rely on the backend country/city
-    // APIs and the picker implemented in _resolveCityId. If resolution fails
-    // the caller should show an error. Return false to indicate no retry.
-    return false;
+    // This function was previously a placeholder. We now prefer the
+    // interactive prompt implemented in _promptForNumericCityId. Keep this
+    // method for backward-compatibility by delegating to that prompt and
+    // performing the retry here when called by legacy callers.
+    final manualId = await _promptForNumericCityId();
+    if (manualId == null) return false;
+    try {
+      setState(() => _loading = true);
+      final newParams = Map<String, String>.from(params);
+      newParams['cityId'] = manualId.toString();
+      final retryResp = await _createAddressOnBackend(newParams);
+      setState(() => _loading = false);
+      return (retryResp != null &&
+          retryResp.statusCode >= 200 &&
+          retryResp.statusCode < 300);
+    } catch (_) {
+      setState(() => _loading = false);
+      return false;
+    }
+  }
+
+  Future<int?> _promptForNumericCityId() async {
+    final TextEditingController ctl = TextEditingController();
+    final result = await showDialog<int?>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Enter City ID'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'The server city list is unavailable. Please enter the numeric city ID provided by the admin or backend so we can create this address.',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(hintText: 'e.g. 12'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(null),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final v = int.tryParse(ctl.text.trim());
+                Navigator.of(ctx).pop(v);
+              },
+              child: const Text('Use ID'),
+            ),
+          ],
+        );
+      },
+    );
+    return result;
   }
 
   @override

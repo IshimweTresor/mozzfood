@@ -4,6 +4,7 @@ import '../api/user.api.dart';
 import '../models/user.model.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/safe_network_image.dart';
 import 'store_front_page.dart';
 import 'location_details_page.dart';
 import 'auth/login_page.dart';
@@ -25,6 +26,7 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
   // Removed unused _preferences field
   bool _isLoading = true;
   String? _authToken;
+  List<Map<String, dynamic>> _availableCountries = [];
 
   final Map<String, List<String>> _countryProvinces = {
     'Rwanda': ['Kigali', 'Musanze', 'Rubavu', 'Rusizi'],
@@ -51,6 +53,14 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       _authToken = prefs.getString('auth_token');
+      // restore locally saved country preference if available
+      final saved = prefs.getString('selected_country');
+      if (saved != null && saved.isNotEmpty) {
+        _selectedCountry = saved;
+      }
+
+      // fetch available countries for the picker (non-blocking)
+      _fetchAvailableCountries();
 
       if (_authToken == null) {
         _navigateToLogin();
@@ -61,6 +71,22 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     } catch (e) {
       print('❌ Error loading user data: $e');
       _showErrorMessage('Failed to load user data');
+    }
+  }
+
+  Future<void> _fetchAvailableCountries() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final res = await UserApi.getAllCountries(token: token);
+      if (res.success && res.data != null) {
+        setState(() {
+          // normalize into list of maps
+          _availableCountries = List<Map<String, dynamic>>.from(res.data!);
+        });
+      }
+    } catch (e) {
+      // ignore — we'll fall back to static list
     }
   }
 
@@ -361,34 +387,77 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              ListTile(
-                title: const Text(
-                  'Rwanda (+250)',
-                  style: TextStyle(color: AppColors.onBackground),
+              // If backend returned a list, show it; otherwise fall back to static
+              if (_availableCountries.isNotEmpty)
+                ..._availableCountries.map((c) {
+                  final name =
+                      (c['name'] ??
+                              c['countryName'] ??
+                              c['country'] ??
+                              c['label'] ??
+                              '')
+                          .toString();
+                  return ListTile(
+                    title: Text(
+                      name,
+                      style: const TextStyle(color: AppColors.onBackground),
+                    ),
+                    onTap: () async {
+                      setState(() {
+                        _selectedCountry = name.isNotEmpty
+                            ? name
+                            : _selectedCountry;
+                        // try to set default province based on static map if available
+                        if (_countryProvinces.containsKey(_selectedCountry)) {
+                          _selectedProvince =
+                              _countryProvinces[_selectedCountry]!.first;
+                        }
+                      });
+                      await _updatePreferences();
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString(
+                        'selected_country',
+                        _selectedCountry,
+                      );
+                      Navigator.pop(context);
+                    },
+                  );
+                }).toList()
+              else ...[
+                ListTile(
+                  title: const Text(
+                    'Rwanda (+250)',
+                    style: TextStyle(color: AppColors.onBackground),
+                  ),
+                  onTap: () async {
+                    setState(() {
+                      _selectedCountry = 'Rwanda';
+                      _selectedProvince = _countryProvinces['Rwanda']!.first;
+                    });
+                    await _updatePreferences();
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('selected_country', _selectedCountry);
+                    Navigator.pop(context);
+                  },
                 ),
-                onTap: () {
-                  setState(() {
-                    _selectedCountry = 'Rwanda';
-                    _selectedProvince = _countryProvinces['Rwanda']!.first;
-                  });
-                  _updatePreferences();
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                title: const Text(
-                  'Mozambique (+258)',
-                  style: TextStyle(color: AppColors.onBackground),
+                ListTile(
+                  title: const Text(
+                    'Mozambique (+258)',
+                    style: TextStyle(color: AppColors.onBackground),
+                  ),
+                  onTap: () async {
+                    setState(() {
+                      _selectedCountry = 'Mozambique';
+                      _selectedProvince =
+                          _countryProvinces['Mozambique']!.first;
+                    });
+                    await _updatePreferences();
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('selected_country', _selectedCountry);
+                    Navigator.pop(context);
+                  },
                 ),
-                onTap: () {
-                  setState(() {
-                    _selectedCountry = 'Mozambique';
-                    _selectedProvince = _countryProvinces['Mozambique']!.first;
-                  });
-                  _updatePreferences();
-                  Navigator.pop(context);
-                },
-              ),
+              ],
             ],
           ),
         );
@@ -620,6 +689,69 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
 
                     const SizedBox(height: 24),
 
+                    // Quick country map buttons (open map centered on chosen country)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MapLocationPickerPage(
+                                    initialCountry: 'Rwanda',
+                                  ),
+                                ),
+                              );
+                              if (result != null) {
+                                await _fetchUserLocations();
+                                _showSuccessMessage(
+                                  'Location created successfully',
+                                );
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: AppColors.inputBorder,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text('Open Rwanda Map'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MapLocationPickerPage(
+                                    initialCountry: 'Mozambique',
+                                  ),
+                                ),
+                              );
+                              if (result != null) {
+                                await _fetchUserLocations();
+                                _showSuccessMessage(
+                                  'Location created successfully',
+                                );
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: AppColors.inputBorder,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text('Open Mozambique Map'),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
                     // Add / Pick Location button — opens map pre-centered on selected country
                     ElevatedButton.icon(
                       onPressed: () async {
@@ -716,12 +848,12 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    imageUrl,
+                  child: SafeNetworkImage(
+                    url: imageUrl,
                     height: 80,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(),
+                    placeholder: Container(),
                   ),
                 ),
               ),
