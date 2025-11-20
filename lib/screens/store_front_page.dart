@@ -42,6 +42,36 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Back button (placed above page content)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8.0,
+                vertical: 6.0,
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: AppColors.onBackground,
+                    ),
+                    onPressed: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                        return;
+                      }
+                      // If there's nowhere to pop to, navigate to the location
+                      // selection page so the user can pick a different location.
+                      Navigator.pushReplacementNamed(
+                        context,
+                        '/location-selection',
+                      );
+                    },
+                    tooltip: 'Back',
+                  ),
+                ],
+              ),
+            ),
             // Test button
             Padding(
               padding: const EdgeInsets.all(8.0),
