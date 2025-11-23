@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/user.api.dart';
+import '../api/location.api.dart';
 import '../models/user.model.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
@@ -173,9 +174,9 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     if (!confirmed) return;
 
     try {
-      final response = await UserApi.deleteUserLocation(
+      final response = await LocationApi.deleteAddress(
         token: _authToken!,
-        locationId: locationId,
+        addressId: int.tryParse(locationId) ?? 0,
       );
 
       if (response.success) {

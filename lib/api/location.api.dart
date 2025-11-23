@@ -123,4 +123,39 @@ class LocationApi {
       );
     }
   }
+
+  /// Delete customer address
+  /// DELETE /api/locations/deleteAddress/{id}
+  static Future<ApiResponse<void>> deleteAddress({
+    required String token,
+    required int addressId,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/deleteAddress/$addressId');
+      print('🔗 Deleting address: $uri');
+      final response = await http.delete(
+        uri,
+        headers: _getHeaders(token: token),
+      );
+      print('📡 Response status: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return ApiResponse<void>(
+          success: true,
+          message: data['message'] ?? 'Address deleted',
+        );
+      }
+      return ApiResponse<void>(
+        success: false,
+        message: data['message'] ?? 'Failed to delete address',
+      );
+    } catch (e) {
+      print('❌ deleteAddress error: $e');
+      return ApiResponse<void>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
 }
