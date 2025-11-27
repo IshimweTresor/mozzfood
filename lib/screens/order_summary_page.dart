@@ -12,6 +12,7 @@ import 'address_book_page.dart';
 import 'payment_method_page.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/safe_network_image.dart';
+import 'waiting_for_payment_page.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final String paymentMethod;
@@ -32,11 +33,7 @@ class OrderSummaryPage extends StatefulWidget {
 
 class _OrderSummaryPageState extends State<OrderSummaryPage> {
   final TextEditingController _instructionsController = TextEditingController();
-  bool _isPaymentComplete = false;
   bool _isPlacingOrder = false;
-  int? _orderId;
-  String? _paymentId;
-  final bool _isLoading = false;
 
   CartProvider get cartProvider =>
       Provider.of<CartProvider>(context, listen: false);
@@ -46,12 +43,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   @override
   void initState() {
     super.initState();
-    // For non-MOMO payments, we can consider the payment "complete" for placing the order
-    // or implement specific payment initiation for other methods if needed.
-    // For now, assuming direct order placement for non-MOMO.
-    if (widget.paymentMethod != 'MOMO by MTN') {
-      _isPaymentComplete = true;
-    }
+    // No special payment initialization required here.
   }
 
   Future<void> _placeOrder() async {
@@ -148,13 +140,67 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         throw Exception(orderResponse.message);
       }
 
-      // On success: show message, set flag, and navigate to Orders page
+      // On success: handle payment flows (MoMo requires initiating request)
       if (mounted) {
-        // orderResponse.data is guaranteed non-null here because of the earlier check
         final createdOrder = orderResponse.data!;
-        // Try common fields for order id (orderId, orderNumber)
         String? createdOrderId =
             (createdOrder.orderId?.toString() ?? createdOrder.orderNumber);
+
+        // If MoMo selected, initiate MoMo request via backend and navigate to waiting page
+        if (widget.paymentMethod == 'MOMO by MTN') {
+          try {
+            final externalId =
+                createdOrderId ??
+                DateTime.now().millisecondsSinceEpoch.toString();
+            final momoResp = await OrderApi.momoRequest(
+              token: token,
+              externalId: externalId,
+              msisdn: widget.selectedNumber,
+              amount: cartProvider.finalAmount,
+              payerMessageTitle: 'Payment for order $externalId',
+            );
+
+            if (momoResp.success && momoResp.data != null) {
+              final mdata = momoResp.data!;
+              String? requestId;
+              if (mdata['requestId'] != null) {
+                requestId = mdata['requestId'].toString();
+              } else if (mdata['id'] != null) {
+                requestId = mdata['id'].toString();
+              } else if (mdata['data'] != null && mdata['data']['id'] != null) {
+                requestId = mdata['data']['id'].toString();
+              }
+
+              if (requestId != null) {
+                // Navigate to waiting screen which will poll status
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => WaitingForPaymentPage(
+                      token: token,
+                      orderId: createdOrderId ?? externalId,
+                      requestId: requestId!,
+                      amount: cartProvider.finalAmount,
+                    ),
+                  ),
+                );
+                return;
+              }
+            }
+
+            // If we reach here, momo initiation failed — show message and continue to orders
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('MoMo request failed: ${momoResp.message}'),
+              ),
+            );
+          } catch (e) {
+            print('❌ MoMo initiation error: $e');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('MoMo initiation error: ${e.toString()}')),
+            );
+          }
+        }
 
         // Save a flag to SharedPreferences so OrdersPage shows success and refreshes
         try {
@@ -200,7 +246,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   String _mapPaymentMethod(String methodName) {
     switch (methodName) {
       case 'MOMO by MTN':
-        return 'MPESA'; // or 'EMOLA' if your backend uses that for MoMo
+        return 'MOMO'; // use MOMO for mobile money
       case 'Vuba Wallet':
         return 'CARD'; // adjust if backend has separate code
       case 'Visa Card':
@@ -217,6 +263,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     }
   }
 
+  @override
   void dispose() {
     _instructionsController.dispose();
     super.dispose();

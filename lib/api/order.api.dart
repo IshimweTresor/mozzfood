@@ -269,7 +269,6 @@ class OrderApi {
     }
   }
 
-
   /// Get payment by ID
   /// GET /api/payments/getPaymentById/{id}
   static Future<ApiResponse<Payment>> getPaymentById({
@@ -486,6 +485,111 @@ class OrderApi {
     }
   }
 
+  /// Initiate a MoMo (mobile money) request via backend
+  /// POST /api/v1/payments/momo/request
+  static Future<ApiResponse<Map<String, dynamic>>> momoRequest({
+    required String token,
+    required String externalId,
+    required String msisdn,
+    required double amount,
+    String? payerMessageTitle,
+    String? payerMessageDescription,
+  }) async {
+    try {
+      print('🔄 Initiating MoMo request');
+      final body = {
+        'externalId': externalId,
+        'msisdn': msisdn,
+        'amount': amount,
+        if (payerMessageTitle != null) 'payerMessageTitle': payerMessageTitle,
+        if (payerMessageDescription != null)
+          'payerMessageDescription': payerMessageDescription,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/v1/payments/momo/request'),
+        headers: _getHeaders(token: token),
+        body: jsonEncode(body),
+      );
+
+      print('📡 MoMo request status: ${response.statusCode}');
+      print('📡 MoMo request body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          message: data is Map && data['message'] != null
+              ? data['message']
+              : 'MoMo request created',
+          data: data is Map<String, dynamic> ? data : {'data': data},
+        );
+      }
+
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: data is Map && data['message'] != null
+            ? data['message']
+            : 'Failed to initiate MoMo request',
+        error: data is Map ? data['error'] ?? data : data,
+      );
+    } catch (e, stack) {
+      print('❌ Error initiating MoMo request: $e');
+      print('📚 Stack trace: $stack');
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Check MoMo request status
+  /// GET /api/v1/payments/momo/status/{id}
+  static Future<ApiResponse<Map<String, dynamic>>> momoStatus({
+    required String token,
+    required String requestId,
+  }) async {
+    try {
+      print('🔄 Checking MoMo status: $requestId');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/v1/payments/momo/status/$requestId'),
+        headers: _getHeaders(token: token),
+      );
+
+      print('📡 MoMo status response: ${response.statusCode}');
+      print('📡 MoMo status body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          message: data is Map && data['message'] != null
+              ? data['message']
+              : 'MoMo status fetched',
+          data: data is Map<String, dynamic> ? data : {'data': data},
+        );
+      }
+
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: data is Map && data['message'] != null
+            ? data['message']
+            : 'Failed to fetch MoMo status',
+        error: data is Map ? data['error'] ?? data : data,
+      );
+    } catch (e, stack) {
+      print('❌ Error fetching MoMo status: $e');
+      print('📚 Stack trace: $stack');
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
   /// Update payment status
   /// PUT /api/payments/updateStatus/{paymentId}
   static Future<ApiResponse<Payment>> updatePaymentStatus({
@@ -642,7 +746,7 @@ class OrderApi {
     }
   }
 
- //track order
+  //track order
   static Future<ApiResponse<Order>> trackOrder({
     required String token,
     required int orderId,
