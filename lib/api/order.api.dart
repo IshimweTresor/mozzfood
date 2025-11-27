@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:vuba/models/order.model.dart';
 import 'package:vuba/models/payment.model.dart';
 import 'package:vuba/response/api_response.dart';
+import '../utils/logger.dart';
 
 class OrderApi {
   static const String baseUrl = 'http://129.151.188.8:8085';
@@ -24,12 +25,12 @@ class OrderApi {
       final uri = Uri.parse(
         '$baseUrl/api/orders/getOrdersByCustomer/$customerId',
       );
-      print('🔄 Fetching orders for customer: $customerId');
+      Logger.info('🔄 Fetching orders for customer: $customerId');
 
       final response = await http.get(uri, headers: _getHeaders(token: token));
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final dynamic data = jsonDecode(response.body);
 
@@ -47,7 +48,7 @@ class OrderApi {
             } else if (ordersList == null) {
               orders = [];
             } else {
-              print('⚠️ Warning: data field is not a List: $ordersList');
+              Logger.warn('⚠️ Warning: data field is not a List: $ordersList');
               message = 'Failed to parse orders data';
             }
             message = data['message'] ?? message;
@@ -65,7 +66,7 @@ class OrderApi {
           return ApiResponse<List<Order>>(success: false, message: message);
         }
 
-        print('✅ Found ${orders.length} orders');
+        Logger.info('✅ Found ${orders.length} orders');
         return ApiResponse<List<Order>>(
           success: true,
           message: message,
@@ -88,8 +89,7 @@ class OrderApi {
         error: errorDetails,
       );
     } catch (e, stack) {
-      print('❌ Error fetching orders: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error fetching orders: $e', e, stack);
       return ApiResponse<List<Order>>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -105,12 +105,12 @@ class OrderApi {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/orders/getOrderById/$orderId');
-      print('🔄 Fetching order details: $orderId');
+      Logger.info('🔄 Fetching order details: $orderId');
 
       final response = await http.get(uri, headers: _getHeaders(token: token));
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -132,8 +132,7 @@ class OrderApi {
         error: data['error'],
       );
     } catch (e, stack) {
-      print('❌ Error fetching order: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error fetching order: $e', e, stack);
       return ApiResponse<Order>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -161,13 +160,13 @@ class OrderApi {
     String? estimatedDeliveryTime,
   }) async {
     try {
-      print('🔄 Creating new order');
-      print('👤 Customer ID: $customerId');
-      print('🏪 Restaurant ID: $restaurantId');
-      print('📍 Delivery Address: $deliveryAddress');
-      print('📞 Contact Number: $contactNumber');
-      print('🛒 Items: ${orderItems.length}');
-      print('💰 Final Amount: $finalAmount');
+      Logger.info('🔄 Creating new order');
+      Logger.info('👤 Customer ID: $customerId');
+      Logger.info('🏪 Restaurant ID: $restaurantId');
+      Logger.info('📍 Delivery Address: $deliveryAddress');
+      Logger.info('📞 Contact Number: $contactNumber');
+      Logger.info('🛒 Items: ${orderItems.length}');
+      Logger.info('💰 Final Amount: $finalAmount');
 
       // Get current date in yyyy-MM-dd format
       final now = DateTime.now();
@@ -179,10 +178,32 @@ class OrderApi {
       final estimatedDeliveryDate =
           '${estimatedDelivery.year}-${estimatedDelivery.month.toString().padLeft(2, '0')}-${estimatedDelivery.day.toString().padLeft(2, '0')}';
 
-      final requestBody = {
+      final int? deliveryAddressIdNum = int.tryParse(
+        deliveryAddressId,
+      ); // may be null if not numeric
+
+      final orderItemsPayload = orderItems.map((item) {
+        final Map<String, dynamic> map = {
+          'itemId': item.itemId,
+          'menuItemId': item.menuItemId,
+          'itemName': item.itemName,
+          'quantity': item.quantity,
+          'unitPrice': item.unitPrice,
+          'totalPrice': item.totalPrice,
+        };
+        if (item.specialInstructions != null &&
+            item.specialInstructions!.isNotEmpty) {
+          map['specialInstructions'] = item.specialInstructions;
+        }
+        if (item.variantIds != null && item.variantIds!.isNotEmpty) {
+          map['variantIds'] = item.variantIds;
+        }
+        return map;
+      }).toList();
+
+      final requestBody = <String, dynamic>{
         'restaurantId': restaurantId,
         'customerId': customerId,
-        'deliveryAddressId': int.tryParse(deliveryAddressId) ?? 0,
         'orderStatus': 'PLACED',
         'deliveryAddress': deliveryAddress,
         'contactNumber': contactNumber,
@@ -195,44 +216,222 @@ class OrderApi {
         'orderPlacedAt': orderPlacedAt,
         'estimatedDelivery':
             estimatedDeliveryTime ?? estimatedDeliveryDate, // ✅ ADDED THIS
-        'orderItems': orderItems
-            .map(
-              (item) => {
-                'menuItemId': item.menuItemId,
-                'quantity': item.quantity,
-                if (item.specialInstructions != null &&
-                    item.specialInstructions!.isNotEmpty)
-                  'specialInstructions': item.specialInstructions,
-                if (item.variantIds != null && item.variantIds!.isNotEmpty)
-                  'variantIds': item.variantIds,
-              },
-            )
-            .toList(),
+        'orderItems': orderItemsPayload,
         if (specialInstructions != null && specialInstructions.isNotEmpty)
           'specialInstructions': specialInstructions,
         if (promotionId != null && promotionId > 0) 'promotionId': promotionId,
       };
 
-      print('📤 Request body: ${jsonEncode(requestBody)}');
+      // Only include deliveryAddressId when it's a valid positive integer.
+      if (deliveryAddressIdNum != null && deliveryAddressIdNum > 0) {
+        // include both keys because backend sometimes expects customerAddressId
+        requestBody['deliveryAddressId'] = deliveryAddressIdNum;
+        requestBody['customerAddressId'] = deliveryAddressIdNum;
+      }
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/orders/createOrder'),
-        headers: _getHeaders(token: token),
-        body: jsonEncode(requestBody),
+      // Prepare a minimal payload first — some servers accept a smaller payload
+      final minimalBody = {
+        'restaurantId': restaurantId,
+        'customerId': customerId,
+        if (deliveryAddressIdNum != null && deliveryAddressIdNum > 0)
+          'customerAddressId': deliveryAddressIdNum,
+        'contactNumber': contactNumber,
+        'finalAmount': finalAmount,
+        'orderItems': orderItemsPayload
+            .map(
+              (it) => {
+                'menuItemId': it['menuItemId'] ?? it['menuItemId'],
+                'quantity': it['quantity'],
+              },
+            )
+            .toList(),
+      };
+
+      Logger.info(
+        '📤 Trying minimal request body first: ${jsonEncode(minimalBody)}',
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      var response = await http.post(
+        Uri.parse('$baseUrl/api/orders/createOrder'),
+        headers: _getHeaders(token: token),
+        body: jsonEncode(minimalBody),
+      );
+
+      Logger.info('📡 Minimal attempt status: ${response.statusCode}');
+      Logger.info('📡 Minimal attempt body: ${response.body}');
+
+      // If minimal attempt failed with server error, fall back to full request
+      if (!(response.statusCode == 200 || response.statusCode == 201)) {
+        Logger.info('📤 Sending full request body: ${jsonEncode(requestBody)}');
+        response = await http.post(
+          Uri.parse('$baseUrl/api/orders/createOrder'),
+          headers: _getHeaders(token: token),
+          body: jsonEncode(requestBody),
+        );
+        Logger.info('📡 Full attempt status: ${response.statusCode}');
+        Logger.info('📡 Full attempt body: ${response.body}');
+      }
+
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response headers: ${response.headers}');
+      Logger.info('📡 Response body: ${response.body}');
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final order = Order.fromJson(data);
-        print('✅ Order created successfully: ${order.orderNumber}');
-        return ApiResponse<Order>(
-          success: true,
-          message: 'Order created successfully',
-          data: order,
-        );
+
+        // Backend may return different shapes:
+        // 1) The order directly as a JSON object
+        // 2) { success: true, data: { ...order... }, message: '...'}
+        // 3) { data: { ...order... } }
+        Map<String, dynamic> orderMap;
+
+        if (data is Map<String, dynamic> && data.containsKey('data')) {
+          final d = data['data'];
+          if (d is Map<String, dynamic>) {
+            orderMap = d;
+          } else {
+            // Fallback: try to coerce
+            orderMap = Map<String, dynamic>.from(d ?? {});
+          }
+        } else if (data is Map<String, dynamic>) {
+          orderMap = data;
+        } else {
+          // If it's not a map, try to parse as map anyway
+          orderMap = Map<String, dynamic>.from({});
+        }
+
+        try {
+          final order = Order.fromJson(orderMap);
+          Logger.info('✅ Order created successfully: ${order.orderNumber}');
+          return ApiResponse<Order>(
+            success: true,
+            message: data is Map<String, dynamic>
+                ? (data['message'] ?? 'Order created successfully')
+                : 'Order created successfully',
+            data: order,
+          );
+        } catch (e) {
+          // If parsing fails, return raw response as error for debugging
+          Logger.warn('⚠️ Warning: Could not parse order JSON: $e');
+          return ApiResponse<Order>(
+            success: false,
+            message: 'Order created but response parsing failed',
+            error: data,
+          );
+        }
+      }
+
+      // If the server returned a 5xx, attempt a minimal second try to help
+      // identify the problem (useful in development). This attempts a safer
+      // minimal payload (menuItemId + quantity) and will return its result
+      // if successful. If not, return the original error.
+      if (response.statusCode >= 500) {
+        try {
+          Logger.warn(
+            '⚠️ Server error (${response.statusCode}). Trying minimal payload fallback...',
+          );
+          final minimalBody = {
+            'restaurantId': restaurantId,
+            'customerId': customerId,
+            'deliveryAddress': deliveryAddress,
+            'contactNumber': contactNumber,
+            'finalAmount': finalAmount,
+            'orderItems': orderItems
+                .map(
+                  (it) => {
+                    'menuItemId': it.menuItemId,
+                    'quantity': it.quantity,
+                  },
+                )
+                .toList(),
+          };
+
+          Logger.info('📤 Minimal request body: ${jsonEncode(minimalBody)}');
+          final fallbackResp = await http.post(
+            Uri.parse('$baseUrl/api/orders/createOrder'),
+            headers: _getHeaders(token: token),
+            body: jsonEncode(minimalBody),
+          );
+
+          Logger.info('📡 Fallback status: ${fallbackResp.statusCode}');
+          Logger.info('📡 Fallback body: ${fallbackResp.body}');
+
+          if (fallbackResp.statusCode == 200 ||
+              fallbackResp.statusCode == 201) {
+            final d = jsonDecode(fallbackResp.body);
+            if (d is Map<String, dynamic> && d.containsKey('data')) {
+              final order = Order.fromJson(d['data']);
+              return ApiResponse<Order>(
+                success: true,
+                data: order,
+                message: d['message'],
+              );
+            } else if (d is Map<String, dynamic>) {
+              final order = Order.fromJson(d);
+              return ApiResponse<Order>(
+                success: true,
+                message: d['message'] ?? 'Order created (fallback)',
+                data: order,
+              );
+            }
+          }
+        } catch (e) {
+          Logger.warn('⚠️ Fallback attempt failed: $e');
+        }
+        // Additional fallback: try minimal payload with deliveryAddressId as string
+        try {
+          final minimalWithStringAddress = {
+            'restaurantId': restaurantId,
+            'customerId': customerId,
+            'deliveryAddress': deliveryAddress,
+            'deliveryAddressId': deliveryAddressIdNum?.toString(),
+            'contactNumber': contactNumber,
+            'finalAmount': finalAmount,
+            'orderItems': orderItems
+                .map(
+                  (it) => {
+                    'menuItemId': it.menuItemId,
+                    'quantity': it.quantity,
+                  },
+                )
+                .toList(),
+          };
+
+          Logger.info(
+            '📤 Minimal (string address) body: ${jsonEncode(minimalWithStringAddress)}',
+          );
+
+          final fallbackResp2 = await http.post(
+            Uri.parse('$baseUrl/api/orders/createOrder'),
+            headers: _getHeaders(token: token),
+            body: jsonEncode(minimalWithStringAddress),
+          );
+
+          Logger.info('📡 Fallback2 status: ${fallbackResp2.statusCode}');
+          Logger.info('📡 Fallback2 body: ${fallbackResp2.body}');
+
+          if (fallbackResp2.statusCode == 200 ||
+              fallbackResp2.statusCode == 201) {
+            final d2 = jsonDecode(fallbackResp2.body);
+            if (d2 is Map<String, dynamic> && d2.containsKey('data')) {
+              final order = Order.fromJson(d2['data']);
+              return ApiResponse<Order>(
+                success: true,
+                data: order,
+                message: d2['message'],
+              );
+            } else if (d2 is Map<String, dynamic>) {
+              final order = Order.fromJson(d2);
+              return ApiResponse<Order>(
+                success: true,
+                data: order,
+                message: d2['message'] ?? 'Order created (fallback2)',
+              );
+            }
+          }
+        } catch (e) {
+          Logger.warn('⚠️ Fallback2 attempt failed: $e');
+        }
       }
 
       // Handle error responses
@@ -494,6 +693,7 @@ class OrderApi {
     required double amount,
     String? payerMessageTitle,
     String? payerMessageDescription,
+    String? callback,
   }) async {
     try {
       print('🔄 Initiating MoMo request');
@@ -504,6 +704,7 @@ class OrderApi {
         if (payerMessageTitle != null) 'payerMessageTitle': payerMessageTitle,
         if (payerMessageDescription != null)
           'payerMessageDescription': payerMessageDescription,
+        if (callback != null) 'callback': callback,
       };
 
       final response = await http.post(

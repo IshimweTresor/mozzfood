@@ -1,0 +1,72 @@
+Send this exact message to the backend team to diagnose the createOrder HTTP 500.
+
+--- Begin message to backend ---
+
+Hi — the mobile client (mozzfood Flutter app) is getting HTTP 500 from POST /api/orders/createOrder. Please check server logs and confirm the expected JSON schema. Below are the exact request, headers and server response we observed; please look up server logs around the timestamp and share the stack trace or validation error.
+
+1) Request (endpoint)
+POST http://129.151.188.8:8085/api/orders/createOrder
+
+2) Request headers (use these; replace token)
+Content-Type: application/json
+Authorization: Bearer <USER_TOKEN>   (replace with the token used in the failing run)
+
+3) Request body (payload that produced HTTP 500)
+{
+  "restaurantId": 2,
+  "customerId": 1,
+  "deliveryAddressId": 52,
+  "orderStatus": "PLACED",
+  "deliveryAddress": "Kimihurura, KK 1 Avenue, Kimihurura, Kicukiro District, Kigali City, Rwanda , Kigali",
+  "contactNumber": "0784107365",
+  "paymentStatus": "PENDING",
+  "subTotal": 9.12,
+  "deliveryFee": 2000,
+  "discountAmount": 0,
+  "finalAmount": 2009.12,
+  "paymentMethod": "MOMO",
+  "orderPlacedAt": "2025-11-27",
+  "estimatedDelivery": "2025-11-27",
+  "orderItems": [
+    { "menuItemId": 3, "quantity": 4 }
+  ],
+  "specialInstructions": "ok"
+}
+
+4) Server response and timestamp observed
+HTTP 500
+Response body:
+{"timestamp":"2025-11-27T07:48:57.351+00:00","status":500,"error":"Internal Server Error","path":"/api/orders/createOrder"}
+
+Please check server logs around 2025-11-27T07:48:57.351+00:00 and return the stack trace or the validation/error message.
+
+5) Specific questions / checks to run on the backend
+- Is `deliveryAddressId` required, and must it be an integer or string? (Client currently sometimes sends integer, sometimes omitted.)
+- What exact shape do you expect for `orderItems`? (menuItemId only + quantity, or require itemId, itemName, unitPrice, totalPrice, variantIds, etc.?)
+- Are `orderStatus` and `paymentStatus` expected or should the server set them (i.e., are those fields allowed from client)? If not, which ones are required/forbidden?
+- Any database constraints (e.g., foreign-key on menuItemId or customerId) that could cause an exception for the supplied values?
+- Are there additional required fields we are missing (customerAddressId, customerName, deliveryInstructions, pickupTime, etc.)?
+- Do you require any content in headers beyond the Bearer token (scopes, correlation id)?
+
+6) MoMo webhook / request example (Swagger)
+We added a `callback` field to the MoMo request. Example swagger payload (client now sends similar):
+{
+  "externalId": "ORDER_302",
+  "msisdn": "250782242930",
+  "amount": 9,
+  "payerMessageTitle": "string",
+  "payerMessageDescription": "string",
+  "callback": "http://129.151.188.8:8085/api/v1/payments/momo/webhook"
+}
+Please confirm your webhook path and whether you expect `callback` in the Momo request body.
+
+7) What I can do next when you reply
+- If you provide expected schema (JSON schema or example request), I’ll change the client payload to match and re-test until the server returns 200/201.
+- If you provide server logs/stack trace, I’ll fix client payload or work with you on the server-side fix as needed.
+- If you prefer, I can run an automated set of simplified test payloads from the client to try to find a minimal accepted payload — but server logs are faster and definitive.
+
+Thanks — please paste the server stack trace or schema here and I’ll implement the fix immediately.
+
+--- End message to backend ---
+
+Copy this file and send it to your backend team, or let me know and I can start probe testing if backend is not available.

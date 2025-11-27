@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/order.api.dart';
+import '../utils/logger.dart';
 import '../models/order.model.dart';
 import '../models/user.model.dart';
 import '../providers/cartproviders.dart';
@@ -93,13 +94,15 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       }).toList();
 
       // ✅ Add validation before API call
-      print('🔍 Validating order data...');
-      print('📦 Restaurant ID: ${cartProvider.currentRestaurantId}');
-      print('👤 Customer ID: $customerId');
-      print('📍 Delivery Address ID: ${widget.selectedLocation?.id ?? '1'}');
-      print('🛒 Order Items: ${orderItems.length}');
+      Logger.info('🔍 Validating order data...');
+      Logger.info('📦 Restaurant ID: ${cartProvider.currentRestaurantId}');
+      Logger.info('👤 Customer ID: $customerId');
+      Logger.info(
+        '📍 Delivery Address ID: ${widget.selectedLocation?.id ?? '1'}',
+      );
+      Logger.info('🛒 Order Items: ${orderItems.length}');
       for (var item in orderItems) {
-        print(
+        Logger.info(
           '  - Item ${item.menuItemId}: ${item.itemName} x${item.quantity} = ${item.totalPrice}',
         );
       }
@@ -110,7 +113,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       try {
         deliveryAddressId = int.parse(addressId);
       } catch (e) {
-        print('⚠️ Warning: Could not parse address ID "$addressId", using 1');
+        Logger.warn(
+          '⚠️ Warning: Could not parse address ID "$addressId", using 1',
+        );
         deliveryAddressId = 1;
       }
 
@@ -137,7 +142,24 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       );
 
       if (!orderResponse.success || orderResponse.data == null) {
-        throw Exception(orderResponse.message);
+        // Show detailed error dialog so developer / backend team can inspect
+        if (mounted) {
+          final details = orderResponse.error ?? orderResponse.message;
+          await showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Order Failed'),
+              content: SingleChildScrollView(child: Text(details.toString())),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
       }
 
       // On success: handle payment flows (MoMo requires initiating request)
@@ -158,6 +180,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               msisdn: widget.selectedNumber,
               amount: cartProvider.finalAmount,
               payerMessageTitle: 'Payment for order $externalId',
+              // provide callback webhook as shown in Swagger
+              callback: '${OrderApi.baseUrl}/api/v1/payments/momo/webhook',
             );
 
             if (momoResp.success && momoResp.data != null) {
@@ -173,6 +197,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
               if (requestId != null) {
                 // Navigate to waiting screen which will poll status
+                if (!mounted) return;
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
@@ -189,16 +214,22 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
             }
 
             // If we reach here, momo initiation failed — show message and continue to orders
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('MoMo request failed: ${momoResp.message}'),
-              ),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('MoMo request failed: ${momoResp.message}'),
+                ),
+              );
+            }
           } catch (e) {
-            print('❌ MoMo initiation error: $e');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('MoMo initiation error: ${e.toString()}')),
-            );
+            Logger.error('❌ MoMo initiation error: $e', e);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('MoMo initiation error: ${e.toString()}'),
+                ),
+              );
+            }
           }
         }
 
@@ -210,16 +241,18 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
             await prefs.setString('order_placed_id', createdOrderId);
           }
         } catch (e) {
-          print('⚠️ Could not write order_placed flag: $e');
+          Logger.warn('⚠️ Could not write order_placed flag: $e');
         }
 
         // Show immediate success feedback
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order placed successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Order placed successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
 
         // Navigate to Orders screen and clear back stack so user lands on orders
         Navigator.pushNamedAndRemoveUntil(context, '/orders', (route) => false);

@@ -107,37 +107,85 @@ class _WaitingForPaymentPageState extends State<WaitingForPaymentPage> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Payment successful'),
-        backgroundColor: Colors.green,
+    // Show a modal dialog to notify the user on mobile
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment Confirmed'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Payment of ${widget.amount.toStringAsFixed(2)} confirmed.'),
+            const SizedBox(height: 8),
+            Text('Order: ${widget.orderId}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
 
+    if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/orders', (r) => false);
   }
 
   Future<void> _onFailure() async {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Payment failed'),
-        backgroundColor: Colors.red,
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment Failed'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Your payment could not be completed.'),
+            const SizedBox(height: 8),
+            Text('Order: ${widget.orderId}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
+
+    if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/orders', (r) => false);
   }
 
   Future<void> _onTimeout() async {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment Pending'),
+        content: const Text(
           'Payment not confirmed. Please try again or check your wallet.',
         ),
-        backgroundColor: Colors.orange,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
+
+    if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/orders', (r) => false);
   }
 
