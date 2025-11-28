@@ -15,6 +15,26 @@ class OrderApi {
     return headers;
   }
 
+  // Normalize mobile numbers for MoMo requests to the backend-expected format:
+  // country code without leading plus (e.g. 250784107365).
+  // Adjust this function if you support multiple countries or obtain country from user profile.
+  static String normalizeMsisdn(String msisdn) {
+    final s = msisdn.trim();
+    if (s.isEmpty) return s;
+    // Already in international format without plus
+    if (s.startsWith('250')) return s;
+    // +2507xxxxxxx -> 2507xxxxxxx
+    if (s.startsWith('+')) return s.substring(1);
+    // 002507xxxxxxx -> 2507xxxxxxx
+    if (s.startsWith('00')) return s.substring(2);
+    // 07xxxxxxx -> 2507xxxxxxx (local Rwandan mobile)
+    if (s.startsWith('0') && s.length >= 8) return '250${s.substring(1)}';
+    // If looks like 9-digit local number (starts with 7)
+    if (RegExp(r'^\d+$').hasMatch(s) && s.length == 9) return '250$s';
+    // Fallback: return as-is
+    return s;
+  }
+
   /// Get all orders for a customer
   /// GET /api/orders/getOrdersByCustomerId/{customerId}
   static Future<ApiResponse<List<Order>>> getCustomerOrders({
@@ -475,22 +495,22 @@ class OrderApi {
     required String paymentId,
   }) async {
     try {
-      print('🔄 Fetching payment: $paymentId');
+      Logger.info('🔄 Fetching payment: $paymentId');
 
       final response = await http.get(
         Uri.parse('$baseUrl/api/payments/getPaymentById/$paymentId'),
         headers: _getHeaders(token: token),
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         if (data['success'] == true) {
           final payment = Payment.fromJson(data['data']);
-          print('✅ Payment fetched successfully');
+          Logger.info('✅ Payment fetched successfully');
           return ApiResponse<Payment>(
             success: true,
             message: data['message'] ?? 'Payment fetched successfully',
@@ -505,8 +525,7 @@ class OrderApi {
         error: data['error'],
       );
     } catch (e, stack) {
-      print('❌ Error fetching payment: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error fetching payment: $e', e, stack);
       return ApiResponse<Payment>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -521,22 +540,22 @@ class OrderApi {
     required String orderId,
   }) async {
     try {
-      print('🔄 Fetching payment for order: $orderId');
+      Logger.info('🔄 Fetching payment for order: $orderId');
 
       final response = await http.get(
         Uri.parse('$baseUrl/api/payments/getPaymentByOrderId/$orderId'),
         headers: _getHeaders(token: token),
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         if (data['success'] == true) {
           final payment = Payment.fromJson(data['data']);
-          print('✅ Payment fetched successfully');
+          Logger.info('✅ Payment fetched successfully');
           return ApiResponse<Payment>(
             success: true,
             message: data['message'] ?? 'Payment fetched successfully',
@@ -551,8 +570,7 @@ class OrderApi {
         error: data['error'],
       );
     } catch (e, stack) {
-      print('❌ Error fetching payment: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error fetching payment: $e', e, stack);
       return ApiResponse<Payment>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -570,11 +588,11 @@ class OrderApi {
     String? phone,
   }) async {
     try {
-      print('🔄 Processing payment');
-      print('📦 Order ID: $orderId');
-      print('💳 Method: $paymentMethod');
-      print('💰 Amount: $amount');
-      if (phone != null) print('📱 Phone: $phone');
+      Logger.info('🔄 Processing payment');
+      Logger.info('📦 Order ID: $orderId');
+      Logger.info('💳 Method: $paymentMethod');
+      Logger.info('💰 Amount: $amount');
+      if (phone != null) Logger.info('📱 Phone: $phone');
 
       final body = {
         'orderId': orderId,
@@ -589,15 +607,15 @@ class OrderApi {
         body: jsonEncode(body),
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         if (data['success'] == true) {
           final payment = Payment.fromJson(data['data']);
-          print('✅ Payment processed successfully');
+          Logger.info('✅ Payment processed successfully');
           return ApiResponse<Payment>(
             success: true,
             message: data['message'] ?? 'Payment processed successfully',
@@ -613,8 +631,7 @@ class OrderApi {
         error: data['error'],
       );
     } catch (e, stack) {
-      print('❌ Error processing payment: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error processing payment: $e', e, stack);
       return ApiResponse<Payment>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -632,11 +649,11 @@ class OrderApi {
     String? phone,
   }) async {
     try {
-      print('🔄 Creating payment');
-      print('📦 Order ID: $orderId');
-      print('💳 Method: $paymentMethod');
-      print('💰 Amount: $amount');
-      if (phone != null) print('📱 Phone: $phone');
+      Logger.info('🔄 Creating payment');
+      Logger.info('📦 Order ID: $orderId');
+      Logger.info('💳 Method: $paymentMethod');
+      Logger.info('💰 Amount: $amount');
+      if (phone != null) Logger.info('📱 Phone: $phone');
 
       final body = {
         'orderId': orderId,
@@ -651,15 +668,15 @@ class OrderApi {
         body: jsonEncode(body),
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         if (data['success'] == true) {
           final payment = Payment.fromJson(data['data']);
-          print('✅ Payment created successfully');
+          Logger.info('✅ Payment created successfully');
           return ApiResponse<Payment>(
             success: true,
             message: data['message'] ?? 'Payment created successfully',
@@ -675,8 +692,7 @@ class OrderApi {
         error: data['error'],
       );
     } catch (e, stack) {
-      print('❌ Error creating payment: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error creating payment: $e', e, stack);
       return ApiResponse<Payment>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -696,16 +712,31 @@ class OrderApi {
     String? callback,
   }) async {
     try {
-      print('🔄 Initiating MoMo request');
+      Logger.info('🔄 Initiating MoMo request');
+
+      final normalizedMsisdn = normalizeMsisdn(msisdn);
+      if (normalizedMsisdn != msisdn) {
+        Logger.info('🔁 Normalized msisdn: $msisdn -> $normalizedMsisdn');
+      }
+      final resolvedCallback =
+          callback ?? '$baseUrl/api/v1/momo/webhook/callback';
+
+      // Ensure payerMessageDescription is provided as some backends require it
+      final resolvedPayerMessageDescription =
+          payerMessageDescription ??
+          payerMessageTitle ??
+          'Payment for order $externalId';
+
       final body = {
         'externalId': externalId,
-        'msisdn': msisdn,
+        'msisdn': normalizedMsisdn,
         'amount': amount,
         if (payerMessageTitle != null) 'payerMessageTitle': payerMessageTitle,
-        if (payerMessageDescription != null)
-          'payerMessageDescription': payerMessageDescription,
-        if (callback != null) 'callback': callback,
+        'payerMessageDescription': resolvedPayerMessageDescription,
+        'callback': resolvedCallback,
       };
+
+      Logger.info('📤 MoMo request body: ${jsonEncode(body)}');
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/v1/payments/momo/request'),
@@ -713,29 +744,57 @@ class OrderApi {
         body: jsonEncode(body),
       );
 
-      print('📡 MoMo request status: ${response.statusCode}');
-      print('📡 MoMo request body: ${response.body}');
+      Logger.info('📡 MoMo request status: ${response.statusCode}');
+      Logger.info('📡 MoMo request body: ${response.body}');
 
-      final data = jsonDecode(response.body);
+      final rawBody = response.body;
+      dynamic data;
+      try {
+        data = jsonDecode(rawBody);
+      } catch (_) {
+        data = rawBody;
+      }
+
+      // helper to safely extract/serialize message values
+      String extractMessage(dynamic maybe) {
+        if (maybe == null) return '';
+        if (maybe is String) return maybe;
+        try {
+          return jsonEncode(maybe);
+        } catch (_) {
+          return maybe.toString();
+        }
+      }
+
+      final respMessage = (data is Map && data.containsKey('message'))
+          ? extractMessage(data['message'])
+          : extractMessage(data);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return ApiResponse<Map<String, dynamic>>(
           success: true,
-          message: data is Map && data['message'] != null
-              ? data['message']
+          message: respMessage.isNotEmpty
+              ? respMessage
               : 'MoMo request created',
           data: data is Map<String, dynamic> ? data : {'data': data},
         );
       }
 
+      // Return a detailed error so the UI/backend handoff can include raw body
+      final errMsg =
+          'Failed to initiate MoMo request (status: ${response.statusCode}) - ${respMessage}';
+      Logger.warn('⚠️ MoMo initiation failed: $errMsg - body: $rawBody');
+      // Also print to terminal for easier debugging during development
+      print('⚠️ MoMo initiation failed: $errMsg');
+      print('Response body: $rawBody');
       return ApiResponse<Map<String, dynamic>>(
         success: false,
-        message: data is Map && data['message'] != null
-            ? data['message']
-            : 'Failed to initiate MoMo request',
-        error: data is Map ? data['error'] ?? data : data,
+        message: errMsg,
+        error: data,
       );
     } catch (e, stack) {
+      Logger.error('❌ Error initiating MoMo request: $e', e, stack);
+      // Print to terminal as well
       print('❌ Error initiating MoMo request: $e');
       print('📚 Stack trace: $stack');
       return ApiResponse<Map<String, dynamic>>(
@@ -752,15 +811,15 @@ class OrderApi {
     required String requestId,
   }) async {
     try {
-      print('🔄 Checking MoMo status: $requestId');
+      Logger.info('🔄 Checking MoMo status: $requestId');
 
       final response = await http.get(
         Uri.parse('$baseUrl/api/v1/payments/momo/status/$requestId'),
         headers: _getHeaders(token: token),
       );
 
-      print('📡 MoMo status response: ${response.statusCode}');
-      print('📡 MoMo status body: ${response.body}');
+      Logger.info('📡 MoMo status response: ${response.statusCode}');
+      Logger.info('📡 MoMo status body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -782,8 +841,7 @@ class OrderApi {
         error: data is Map ? data['error'] ?? data : data,
       );
     } catch (e, stack) {
-      print('❌ Error fetching MoMo status: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error fetching MoMo status: $e', e, stack);
       return ApiResponse<Map<String, dynamic>>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -800,10 +858,11 @@ class OrderApi {
     String? transactionId,
   }) async {
     try {
-      print('🔄 Updating payment status');
-      print('💳 Payment ID: $paymentId');
-      print('📊 New Status: $status');
-      if (transactionId != null) print('🔑 Transaction ID: $transactionId');
+      Logger.info('🔄 Updating payment status');
+      Logger.info('💳 Payment ID: $paymentId');
+      Logger.info('📊 New Status: $status');
+      if (transactionId != null)
+        Logger.info('🔑 Transaction ID: $transactionId');
 
       final body = {
         'status': status,
@@ -816,8 +875,8 @@ class OrderApi {
         body: jsonEncode(body),
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -839,8 +898,7 @@ class OrderApi {
         error: data['error'],
       );
     } catch (e, stack) {
-      print('❌ Error updating payment status: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error updating payment status: $e', e, stack);
       return ApiResponse<Payment>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -855,15 +913,15 @@ class OrderApi {
     required String customerId,
   }) async {
     try {
-      print('🔄 Fetching payments for customer: $customerId');
+      Logger.info('🔄 Fetching payments for customer: $customerId');
 
       final response = await http.get(
         Uri.parse('$baseUrl/api/payments/customer/$customerId'),
         headers: _getHeaders(token: token),
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -873,7 +931,7 @@ class OrderApi {
           final payments = paymentsList
               .map((p) => Payment.fromJson(p))
               .toList();
-          print('✅ Found ${payments.length} payments');
+          Logger.info('✅ Found ${payments.length} payments');
           return ApiResponse<List<Payment>>(
             success: true,
             message: data['message'] ?? 'Payments fetched successfully',
@@ -888,8 +946,7 @@ class OrderApi {
         error: data['error'],
       );
     } catch (e, stack) {
-      print('❌ Error fetching payments: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error fetching payments: $e', e, stack);
       return ApiResponse<List<Payment>>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -905,9 +962,9 @@ class OrderApi {
     required String status,
   }) async {
     try {
-      print('🔄 Updating order status');
-      print('📦 Order ID: $orderId');
-      print('📊 New Status: $status');
+      Logger.info('🔄 Updating order status');
+      Logger.info('📦 Order ID: $orderId');
+      Logger.info('📊 New Status: $status');
 
       final response = await http.put(
         Uri.parse('$baseUrl/api/orders/updateOrderStatus/$orderId'),
@@ -915,15 +972,15 @@ class OrderApi {
         body: jsonEncode({'orderStatus': status}),
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         if (data['success'] == true) {
           final order = Order.fromJson(data['data']);
-          print('✅ Order status updated successfully');
+          Logger.info('✅ Order status updated successfully');
           return ApiResponse<Order>(
             success: true,
             message: data['message'] ?? 'Order status updated successfully',
@@ -938,8 +995,7 @@ class OrderApi {
         error: data['error'],
       );
     } catch (e, stack) {
-      print('❌ Error updating order status: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error updating order status: $e', e, stack);
       return ApiResponse<Order>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -953,22 +1009,22 @@ class OrderApi {
     required int orderId,
   }) async {
     try {
-      print('🔄 Tracking order: $orderId');
+      Logger.info('🔄 Tracking order: $orderId');
 
       final response = await http.get(
         Uri.parse('$baseUrl/api/orders/$orderId/track'),
         headers: _getHeaders(token: token),
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
         // ✅ Backend returns the order directly, not wrapped in success/data
         final order = Order.fromJson(data);
-        print('✅ Order tracked successfully');
+        Logger.info('✅ Order tracked successfully');
         return ApiResponse<Order>(
           success: true,
           message: 'Order tracked successfully',
@@ -991,8 +1047,7 @@ class OrderApi {
         );
       }
     } catch (e, stack) {
-      print('❌ Error tracking order: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error tracking order: $e', e, stack);
       return ApiResponse<Order>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -1006,22 +1061,22 @@ class OrderApi {
     required int orderId,
   }) async {
     try {
-      print('🔄 Cancelling order: $orderId');
+      Logger.info('🔄 Cancelling order: $orderId');
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/orders/cancelOrder/$orderId'),
         headers: _getHeaders(token: token),
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
         // ✅ Backend returns the order directly, not wrapped in success/data
         final order = Order.fromJson(data);
-        print('✅ Order cancelled successfully');
+        Logger.info('✅ Order cancelled successfully');
         return ApiResponse<Order>(
           success: true,
           message: 'Order cancelled successfully',
@@ -1044,8 +1099,7 @@ class OrderApi {
         );
       }
     } catch (e, stack) {
-      print('❌ Error cancelling order: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error cancelling order: $e', e, stack);
       return ApiResponse<Order>(
         success: false,
         message: 'Network error: ${e.toString()}',

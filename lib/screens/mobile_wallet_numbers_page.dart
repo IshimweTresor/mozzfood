@@ -6,7 +6,11 @@ class MobileWalletNumbersPage extends StatefulWidget {
   final String paymentMethod;
   final SavedLocation selectedLocation;
 
-  const MobileWalletNumbersPage({super.key, required this.paymentMethod, required this.selectedLocation});
+  const MobileWalletNumbersPage({
+    super.key,
+    required this.paymentMethod,
+    required this.selectedLocation,
+  });
 
   @override
   State<MobileWalletNumbersPage> createState() =>
@@ -14,18 +18,31 @@ class MobileWalletNumbersPage extends StatefulWidget {
 }
 
 class _MobileWalletNumbersPageState extends State<MobileWalletNumbersPage> {
-   late List<String> _walletNumbers;
+  late List<String> _walletNumbers;
   final TextEditingController _newNumberController = TextEditingController();
 
-   @override
+  @override
   void initState() {
     super.initState();
     // Use the phone from the selected address as the default wallet number
     _walletNumbers = [
       if (widget.selectedLocation.phone != null &&
           widget.selectedLocation.phone!.isNotEmpty)
-        widget.selectedLocation.phone!,
+        _normalizeMsisdn(widget.selectedLocation.phone!),
     ];
+  }
+
+  // Local phone normalization (keeps behavior aligned with backend helper)
+  // Default country code is +250 (Rwanda) — adjust if needed.
+  String _normalizeMsisdn(String msisdn) {
+    final s = msisdn.trim();
+    if (s.isEmpty) return s;
+    if (s.startsWith('250')) return s;
+    if (s.startsWith('+')) return s.substring(1);
+    if (s.startsWith('00')) return s.substring(2);
+    if (s.startsWith('0') && s.length >= 8) return '250${s.substring(1)}';
+    if (RegExp(r'^\d+$').hasMatch(s) && s.length == 9) return '250$s';
+    return s;
   }
 
   @override
@@ -139,12 +156,11 @@ class _MobileWalletNumbersPageState extends State<MobileWalletNumbersPage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder:
-                (context) => OrderSummaryPage(
-                  paymentMethod: widget.paymentMethod,
-                  selectedNumber: number,
-                  selectedLocation: widget.selectedLocation,
-                ),
+            builder: (context) => OrderSummaryPage(
+              paymentMethod: widget.paymentMethod,
+              selectedNumber: number,
+              selectedLocation: widget.selectedLocation,
+            ),
           ),
         );
       },
@@ -163,20 +179,18 @@ class _MobileWalletNumbersPageState extends State<MobileWalletNumbersPage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color:
-                    widget.paymentMethod.contains('MOMO')
-                        ? const Color(0xFFFFCC00)
-                        : const Color(0xFFE60012),
+                color: widget.paymentMethod.contains('MOMO')
+                    ? const Color(0xFFFFCC00)
+                    : const Color(0xFFE60012),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
                 child: Text(
                   widget.paymentMethod.contains('MOMO') ? 'MoMo' : 'airtel',
                   style: TextStyle(
-                    color:
-                        widget.paymentMethod.contains('MOMO')
-                            ? Colors.black
-                            : Colors.white,
+                    color: widget.paymentMethod.contains('MOMO')
+                        ? Colors.black
+                        : Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                   ),
@@ -275,95 +289,92 @@ class _MobileWalletNumbersPageState extends State<MobileWalletNumbersPage> {
   void _showAddNumberDialog() {
     showDialog(
       context: context,
-      builder:
-          (context) => Dialog(
-            backgroundColor: const Color(0xFF2A2A2A),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'New Mobile Wallet\nNumber',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+
+              // Phone number input
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF3A3A3A)),
+                ),
+                child: TextField(
+                  controller: _newNumberController,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Enter phone number',
+                    hintStyle: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Action buttons
+              Row(
                 children: [
-                  const Text(
-                    'New Mobile Wallet\nNumber',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Phone number input
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF3A3A3A)),
-                    ),
-                    child: TextField(
-                      controller: _newNumberController,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Enter phone number',
-                        hintStyle: TextStyle(color: Colors.grey),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        _newNumberController.clear();
+                        Navigator.pop(context);
+                      },
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 24),
-
-                  // Action buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () {
-                            _newNumberController.clear();
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(color: Colors.grey, fontSize: 16),
-                          ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _confirmAddNumber,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _confirmAddNumber,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Confirm',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                      child: const Text(
+                        'Confirm',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
+        ),
+      ),
     );
   }
 
@@ -371,7 +382,7 @@ class _MobileWalletNumbersPageState extends State<MobileWalletNumbersPage> {
     final newNumber = _newNumberController.text.trim();
     if (newNumber.isNotEmpty) {
       setState(() {
-        _walletNumbers.add(newNumber);
+        _walletNumbers.add(_normalizeMsisdn(newNumber));
       });
       _newNumberController.clear();
       Navigator.pop(context);
@@ -381,36 +392,32 @@ class _MobileWalletNumbersPageState extends State<MobileWalletNumbersPage> {
   void _deleteNumber(int index) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: const Color(0xFF2A2A2A),
-            title: const Text(
-              'Delete Number',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: const Text(
-              'Are you sure you want to delete this number?',
-              style: TextStyle(color: Colors.grey),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _walletNumbers.removeAt(index);
-                  });
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        title: const Text(
+          'Delete Number',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this number?',
+          style: TextStyle(color: Colors.grey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _walletNumbers.removeAt(index);
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 }

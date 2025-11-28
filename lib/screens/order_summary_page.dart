@@ -180,8 +180,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               msisdn: widget.selectedNumber,
               amount: cartProvider.finalAmount,
               payerMessageTitle: 'Payment for order $externalId',
-              // provide callback webhook as shown in Swagger
-              callback: '${OrderApi.baseUrl}/api/v1/payments/momo/webhook',
+              // callback will default to the shared webhook: /api/v1/momo/webhook/callback
             );
 
             if (momoResp.success && momoResp.data != null) {
@@ -197,7 +196,31 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
               if (requestId != null) {
                 // Navigate to waiting screen which will poll status
+                final displayNumber = OrderApi.normalizeMsisdn(
+                  widget.selectedNumber,
+                );
+
                 if (!mounted) return;
+                // Inform the user that the payment request was sent and prompt them to accept it on their phone
+                await showDialog<void>(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Payment Request Sent'),
+                    content: SingleChildScrollView(
+                      child: Text(
+                        'A payment request has been sent to $displayNumber. Please accept the request on your phone to complete payment.\n\nWhen you tap OK you will be taken to the payment status screen which will confirm when the payment completes.',
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
