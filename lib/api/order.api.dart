@@ -100,7 +100,7 @@ class OrderApi {
             );
           }
         } else {
-          print('⚠️ Warning: Unexpected response format: $data');
+          Logger.warn('⚠️ Warning: Unexpected response format: $data');
           message = 'Unexpected response format from server';
           return ApiResponse<List<Order>>(success: false, message: message);
         }
@@ -156,7 +156,7 @@ class OrderApi {
       if (response.statusCode == 200) {
         if (data['success'] == true) {
           final order = Order.fromJson(data['data']);
-          print('✅ Order fetched successfully');
+          Logger.info('✅ Order fetched successfully');
           return ApiResponse<Order>(
             success: true,
             message: data['message'] ?? 'Order fetched successfully',
@@ -496,8 +496,7 @@ class OrderApi {
         );
       }
     } catch (e, stack) {
-      print('❌ Error creating order: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error creating order: $e', e, stack);
       return ApiResponse<Order>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -818,8 +817,8 @@ class OrderApi {
           'Failed to initiate MoMo request (status: ${response.statusCode}) - ${respMessage}';
       Logger.warn('⚠️ MoMo initiation failed: $errMsg - body: $rawBody');
       // Also print to terminal for easier debugging during development
-      print('⚠️ MoMo initiation failed: $errMsg');
-      print('Response body: $rawBody');
+      Logger.warn('⚠️ MoMo initiation failed: $errMsg');
+      Logger.info('Response body: $rawBody');
       return ApiResponse<Map<String, dynamic>>(
         success: false,
         message: errMsg,
@@ -828,8 +827,7 @@ class OrderApi {
     } catch (e, stack) {
       Logger.error('❌ Error initiating MoMo request: $e', e, stack);
       // Print to terminal as well
-      print('❌ Error initiating MoMo request: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Error initiating MoMo request: $e', e, stack);
       return ApiResponse<Map<String, dynamic>>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -916,7 +914,7 @@ class OrderApi {
       if (response.statusCode == 200) {
         if (data['success'] == true) {
           final payment = Payment.fromJson(data['data']);
-          print('✅ Payment status updated successfully');
+          Logger.info('✅ Payment status updated successfully');
           return ApiResponse<Payment>(
             success: true,
             message: data['message'] ?? 'Payment status updated successfully',

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:vuba/response/api_response.dart';
 import 'package:vuba/response/user_location_responses.dart';
 import 'package:vuba/models/user.model.dart';
+import '../utils/logger.dart';
 
 class LocationApi {
   static const String baseUrl = 'http://129.151.188.8:8085/api/locations';
@@ -23,13 +24,13 @@ class LocationApi {
         '$baseUrl/getCustomerAddresses',
       ).replace(queryParameters: {'customerId': customerId});
 
-      print('🌍 Fetching addresses from: $uri');
-      print('🔑 Token: ${token.substring(0, 10)}...');
+      Logger.info('🌍 Fetching addresses from: $uri');
+      Logger.info('🔑 Token: ${token.substring(0, 10)}...');
 
       final response = await http.get(uri, headers: _getHeaders(token: token));
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -54,7 +55,7 @@ class LocationApi {
             )
             .toList();
 
-        print('📍 Found ${addresses.length} addresses');
+        Logger.info('📍 Found ${addresses.length} addresses');
 
         return ApiResponse<CustomerAddressesResponse>(
           success: true,
@@ -62,7 +63,7 @@ class LocationApi {
           data: CustomerAddressesResponse(addresses: addresses),
         );
       } else {
-        print('❌ Error response: $data');
+        Logger.error('❌ Error response: $data');
         return ApiResponse<CustomerAddressesResponse>(
           success: false,
           message: data['message'] ?? 'Failed to fetch addresses',
@@ -70,8 +71,8 @@ class LocationApi {
         );
       }
     } catch (e, stack) {
-      print('❌ Exception: $e');
-      print('📚 Stack trace: $stack');
+      Logger.error('❌ Exception: $e');
+      Logger.error('📚 Stack trace: $stack');
       return ApiResponse<CustomerAddressesResponse>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -132,13 +133,13 @@ class LocationApi {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/deleteAddress/$addressId');
-      print('🔗 Deleting address: $uri');
+      Logger.info('🔗 Deleting address: $uri');
       final response = await http.delete(
         uri,
         headers: _getHeaders(token: token),
       );
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
         return ApiResponse<void>(
@@ -151,7 +152,7 @@ class LocationApi {
         message: data['message'] ?? 'Failed to delete address',
       );
     } catch (e) {
-      print('❌ deleteAddress error: $e');
+      Logger.error('❌ deleteAddress error: $e');
       return ApiResponse<void>(
         success: false,
         message: 'Network error: ${e.toString()}',

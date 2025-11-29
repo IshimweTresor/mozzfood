@@ -4,11 +4,11 @@ import '../api/user.api.dart';
 import '../api/location.api.dart';
 import '../models/user.model.dart';
 import '../utils/colors.dart';
+import '../utils/logger.dart';
 import '../widgets/safe_network_image.dart';
 import 'store_front_page.dart';
 import 'location_details_page.dart';
 import 'auth/login_page.dart';
-// import '../response/user_location_responses.dart';
 import 'map_location_picker_page.dart';
 
 class LocationSelectionPage extends StatefulWidget {
@@ -26,23 +26,9 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
   // Removed unused _preferences field
   bool _isLoading = true;
   String? _authToken;
-  List<Map<String, dynamic>> _availableCountries = [];
+  // No dynamic country list — only direct map options are shown
 
-  final Map<String, List<String>> _countryProvinces = {
-    'Rwanda': ['Kigali', 'Musanze', 'Rubavu', 'Rusizi'],
-    'Mozambique': [
-      'Maputo',
-      'Gaza',
-      'Inhambane',
-      'Sofala',
-      'Manica',
-      'Zambezia',
-      'Nampula',
-      'Niassa',
-      'Cabo Delgado',
-      'Tete',
-    ],
-  };
+  // country/province mapping removed — selection handled by map picker
 
   @override
   void initState() {
@@ -60,9 +46,6 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
         _selectedCountry = saved;
       }
 
-      // fetch available countries for the picker (non-blocking)
-      _fetchAvailableCountries();
-
       if (_authToken == null) {
         _navigateToLogin();
         return;
@@ -70,24 +53,7 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
 
       await _fetchUserLocations();
     } catch (e) {
-      print('❌ Error loading user data: $e');
       _showErrorMessage('Failed to load user data');
-    }
-  }
-
-  Future<void> _fetchAvailableCountries() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      final res = await UserApi.getAllCountries(token: token);
-      if (res.success && res.data != null) {
-        setState(() {
-          // normalize into list of maps
-          _availableCountries = List<Map<String, dynamic>>.from(res.data!);
-        });
-      }
-    } catch (e) {
-      // ignore — we'll fall back to static list
     }
   }
 
@@ -114,28 +80,18 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
         });
         return;
       }
-      print('🔍 Fetching customer addresses for customerId: $customerId');
       final response = await UserApi.getCustomerAddresses(
         token: _authToken!,
         customerId: customerId,
       );
-
-      print('📍 API Response:');
-      print('   - Success: ${response.success}');
-      print('   - Message: ${response.message}');
-      print('   - Data: ${response.data}');
-
       if (response.success && response.data != null) {
-        print('📍 Locations found: ${response.data!.length}');
         setState(() {
           _savedLocations = response.data!;
         });
       } else {
-        print('❌ Failed to fetch locations: ${response.message}');
         _showErrorMessage(response.message);
       }
     } catch (e) {
-      print('❌ Error fetching locations: $e');
       _showErrorMessage('Failed to load locations');
     } finally {
       setState(() {
@@ -161,7 +117,7 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
         _showErrorMessage(response.message);
       }
     } catch (e) {
-      print('❌ Error updating preferences: $e');
+      Logger.error('❌ Error updating preferences', e);
       _showErrorMessage('Failed to update preferences');
     }
   }
@@ -188,7 +144,6 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
         _showErrorMessage(response.message);
       }
     } catch (e) {
-      print('❌ Error deleting location: $e');
       _showErrorMessage('Failed to delete location');
     }
   }
@@ -244,18 +199,6 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     );
   }
 
-  void _navigateToProvinceSelection(String province) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => LocationDetailsPage(
-          selectedProvince: province,
-          onLocationUpdated: _fetchUserLocations,
-        ),
-      ),
-    );
-  }
-
   void _navigateToLogin() {
     Navigator.pushAndRemoveUntil(
       context,
@@ -270,7 +213,7 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
       await prefs.clear();
       _navigateToLogin();
     } catch (e) {
-      print('❌ Error during logout: $e');
+      Logger.error('❌ Error during logout', e);
     }
   }
 
@@ -366,104 +309,19 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     );
   }
 
-  void _showCountryPicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  // Country picker and selection removed: map is opened directly from the row above.
+
+  Future<void> _openMapForCountry(String? country) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapLocationPickerPage(initialCountry: country),
       ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Select Country',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.onBackground,
-                ),
-              ),
-              const SizedBox(height: 20),
-              // If backend returned a list, show it; otherwise fall back to static
-              if (_availableCountries.isNotEmpty)
-                ..._availableCountries.map((c) {
-                  final name =
-                      (c['name'] ??
-                              c['countryName'] ??
-                              c['country'] ??
-                              c['label'] ??
-                              '')
-                          .toString();
-                  return ListTile(
-                    title: Text(
-                      name,
-                      style: const TextStyle(color: AppColors.onBackground),
-                    ),
-                    onTap: () async {
-                      setState(() {
-                        _selectedCountry = name.isNotEmpty
-                            ? name
-                            : _selectedCountry;
-                        // try to set default province based on static map if available
-                        if (_countryProvinces.containsKey(_selectedCountry)) {
-                          _selectedProvince =
-                              _countryProvinces[_selectedCountry]!.first;
-                        }
-                      });
-                      await _updatePreferences();
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setString(
-                        'selected_country',
-                        _selectedCountry,
-                      );
-                      Navigator.pop(context);
-                    },
-                  );
-                }).toList()
-              else ...[
-                ListTile(
-                  title: const Text(
-                    'Rwanda (+250)',
-                    style: TextStyle(color: AppColors.onBackground),
-                  ),
-                  onTap: () async {
-                    setState(() {
-                      _selectedCountry = 'Rwanda';
-                      _selectedProvince = _countryProvinces['Rwanda']!.first;
-                    });
-                    await _updatePreferences();
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('selected_country', _selectedCountry);
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  title: const Text(
-                    'Mozambique (+258)',
-                    style: TextStyle(color: AppColors.onBackground),
-                  ),
-                  onTap: () async {
-                    setState(() {
-                      _selectedCountry = 'Mozambique';
-                      _selectedProvince =
-                          _countryProvinces['Mozambique']!.first;
-                    });
-                    await _updatePreferences();
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('selected_country', _selectedCountry);
-                    Navigator.pop(context);
-                  },
-                ),
-              ],
-            ],
-          ),
-        );
-      },
     );
+    if (result != null) {
+      await _fetchUserLocations();
+      _showSuccessMessage('Location created successfully');
+    }
   }
 
   @override
@@ -601,192 +459,76 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
 
                     const SizedBox(height: 24),
 
-                    // Country Selection
+                    // Add / Pick Location trigger — label-only. Use the
+                    // popup menu to open country maps.
                     Container(
-                      child: InkWell(
-                        onTap: _showCountryPicker,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                        border: Border.all(color: AppColors.inputBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.add_location_alt_outlined,
+                            color: AppColors.primary,
                           ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.inputBorder),
-                          ),
-                          child: Row(
-                            children: [
-                              // Small flag placeholder — change based on country
-                              Container(
-                                width: 24,
-                                height: 18,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(2),
-                                  color: Colors.transparent,
-                                ),
-                                child: _selectedCountry == 'Rwanda'
-                                    ? Stack(
-                                        children: [
-                                          Container(
-                                            width: 24,
-                                            height: 6,
-                                            color: AppColors.rwandaBlue,
-                                          ),
-                                          Positioned(
-                                            top: 6,
-                                            child: Container(
-                                              width: 24,
-                                              height: 6,
-                                              color: AppColors.rwandaYellow,
-                                            ),
-                                          ),
-                                          Positioned(
-                                            bottom: 0,
-                                            child: Container(
-                                              width: 24,
-                                              height: 6,
-                                              color: AppColors.rwandaGreen,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    : Container(
-                                        width: 24,
-                                        height: 18,
-                                        color: AppColors.surface,
-                                        child: Center(
-                                          child: Text(
-                                            _selectedCountry.substring(0, 1),
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Pick Location on Map',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.onBackground,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  _selectedCountry,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.onBackground,
+                            ),
+                          ),
+                          PopupMenuButton<String>(
+                            tooltip: 'Open country map',
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: AppColors.textSecondary,
+                            ),
+                            onSelected: (value) {
+                              if (value == 'rwanda') {
+                                _openMapForCountry('Rwanda');
+                              } else if (value == 'mozambique') {
+                                _openMapForCountry('Mozambique');
+                              }
+                            },
+                            itemBuilder: (BuildContext ctx) => [
+                              const PopupMenuItem<String>(
+                                value: 'rwanda',
+                                child: ListTile(
+                                  leading: Icon(
+                                    Icons.map,
+                                    color: AppColors.primary,
                                   ),
+                                  title: Text('Open Rwanda Map'),
                                 ),
                               ),
-                              const Icon(
-                                Icons.keyboard_arrow_down,
-                                color: AppColors.textSecondary,
+                              const PopupMenuItem<String>(
+                                value: 'mozambique',
+                                child: ListTile(
+                                  leading: Icon(
+                                    Icons.map,
+                                    color: AppColors.primary,
+                                  ),
+                                  title: Text('Open Mozambique Map'),
+                                ),
                               ),
                             ],
                           ),
-                        ),
+                        ],
                       ),
                     ),
 
                     const SizedBox(height: 24),
-
-                    // Quick country map buttons (open map centered on chosen country)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MapLocationPickerPage(
-                                    initialCountry: 'Rwanda',
-                                  ),
-                                ),
-                              );
-                              if (result != null) {
-                                await _fetchUserLocations();
-                                _showSuccessMessage(
-                                  'Location created successfully',
-                                );
-                              }
-                            },
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: AppColors.inputBorder,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: const Text('Open Rwanda Map'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MapLocationPickerPage(
-                                    initialCountry: 'Mozambique',
-                                  ),
-                                ),
-                              );
-                              if (result != null) {
-                                await _fetchUserLocations();
-                                _showSuccessMessage(
-                                  'Location created successfully',
-                                );
-                              }
-                            },
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: AppColors.inputBorder,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: const Text('Open Mozambique Map'),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Add / Pick Location button — opens map pre-centered on selected country
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MapLocationPickerPage(
-                              initialCountry: _selectedCountry,
-                            ),
-                          ),
-                        );
-
-                        // If the map picker created/returned a location, refresh list
-                        if (result != null) {
-                          // Refresh saved locations from backend
-                          await _fetchUserLocations();
-                          _showSuccessMessage('Location created successfully');
-                        }
-                      },
-                      icon: const Icon(Icons.add_location_alt_outlined),
-                      label: const Text('Add / Pick Location on Map'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
 
                     // Show saved locations under the button
                     if (_savedLocations.isNotEmpty) ...[

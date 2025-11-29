@@ -38,25 +38,50 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
 
   Future<void> _initLocation() async {
     try {
-      // If an initial country was provided, center the map on that country
+      // Prefer device GPS for better accuracy even when a country shortcut
+      // is requested (e.g. "Open Rwanda Map"). This ensures the map will
+      // center on the user's actual device location when possible instead
+      // of a static country city coordinate.
       if (widget.initialCountry != null) {
-        final c = widget.initialCountry!.toLowerCase();
-        if (c.contains('rwanda')) {
-          // Kigali, Rwanda
-          _center = ll.LatLng(-1.9441, 30.0619);
-        } else if (c.contains('mozambique')) {
-          // Maputo, Mozambique
-          _center = ll.LatLng(-25.9653, 32.5832);
+        // Always try to obtain device location first (fast timeout).
+        try {
+          final pos = await _determinePosition().timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Timeout'),
+          );
+          _center = ll.LatLng(pos.latitude, pos.longitude);
+        } catch (_) {
+          // Silent fallback to reasonable country center when device
+          // location can't be obtained (permissions/service off).
+          final c = widget.initialCountry!.toLowerCase();
+          if (c.contains('rwanda')) {
+            _center = ll.LatLng(-1.9441, 30.0619);
+          } else if (c.contains('mozambique')) {
+            _center = ll.LatLng(-25.9653, 32.5832);
+          }
         }
       } else {
-        final pos = await _determinePosition();
-        _center = ll.LatLng(pos.latitude, pos.longitude);
+        // No country requested — fetch device location, but timeout if it
+        // takes too long so the map remains responsive.
+        try {
+          final pos = await _determinePosition().timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('Timeout'),
+          );
+          _center = ll.LatLng(pos.latitude, pos.longitude);
+        } catch (_) {
+          // Keep default center if unable to determine device position.
+        }
       }
 
       setState(() {});
       // move the map to the center if controller is ready
       try {
         _mapController.move(_center, 15.0);
+      } catch (_) {}
+      // fetch address for the current center so UI shows exact place
+      try {
+        await _fetchAddressForCenter();
       } catch (_) {}
       // load countries for city resolution
       _loadCountries();
@@ -208,6 +233,33 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
   void dispose() {
     _debounce?.cancel();
     super.dispose();
+  }
+
+  Future<void> _recenterToDevice() async {
+    try {
+      setState(() {
+        _addressLoading = true;
+      });
+      final pos = await _determinePosition();
+      if (!mounted) return;
+      _center = ll.LatLng(pos.latitude, pos.longitude);
+      try {
+        _mapController.move(_center, 16.0);
+      } catch (_) {}
+      await _fetchAddressForCenter();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not get device location')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _addressLoading = false;
+        });
+      }
+    }
   }
 
   Future<int?> _resolveCityId(
@@ -795,6 +847,24 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                     ),
                   ),
                 ],
+              ),
+            ),
+
+            // Recenter button (fetch device location and move map)
+            Positioned(
+              top: 72,
+              right: 16,
+              child: FloatingActionButton(
+                mini: true,
+                heroTag: 'recenter_btn',
+                backgroundColor: AppColors.primary,
+                tooltip: 'Recenter to my location',
+                onPressed: _recenterToDevice,
+                child: const Icon(
+                  Icons.my_location,
+                  size: 20,
+                  color: Colors.white,
+                ),
               ),
             ),
 

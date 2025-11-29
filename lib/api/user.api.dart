@@ -7,6 +7,7 @@ import '../models/user.model.dart' as user_model;
 // Import LoginResponse from user.model.dart
 import '../models/user.model.dart' show LoginResponse;
 import 'package:vuba/response/user_location_responses.dart';
+import '../utils/logger.dart';
 
 class UserApi {
   // Get customer addresses by customerId
@@ -19,9 +20,8 @@ class UserApi {
 
       final response = await http.get(uri, headers: _getHeaders(token: token));
 
-      print('📡 GetCustomerAddresses Response:');
-      print('   - Status: ${response.statusCode}');
-      print('   - Body: ${response.body}');
+      Logger.info('📡 GetCustomerAddresses Response: ${response.statusCode}');
+      Logger.info('   - Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -63,8 +63,8 @@ class UserApi {
           message: 'Failed to fetch customer addresses',
         );
       }
-    } catch (e) {
-      print('❌ GetCustomerAddresses Error: $e');
+    } catch (e, stack) {
+      Logger.error('❌ GetCustomerAddresses Error: $e', e, stack);
       return ApiResponse<List<user_model.SavedLocation>>(
         success: false,
         message: 'Error: $e',
@@ -111,11 +111,11 @@ class UserApi {
     String? imagePath, // Optional image file path
   }) async {
     try {
-      print('🌍 Creating address...');
-      print('📍 Customer ID: $customerId');
-      print('🏙️ City ID: $cityId');
-      print('🏠 Street: $street');
-      print('📮 Address Type: $addressType');
+      Logger.info('🌍 Creating address...');
+      Logger.info('📍 Customer ID: $customerId');
+      Logger.info('🏙️ City ID: $cityId');
+      Logger.info('🏠 Street: $street');
+      Logger.info('📮 Address Type: $addressType');
 
       // Convert addressType int to enum string for backend
       String addressTypeEnum;
@@ -132,7 +132,7 @@ class UserApi {
         default:
           addressTypeEnum = 'HOME';
       }
-      print('📮 Address Type Enum: $addressTypeEnum');
+      Logger.info('📮 Address Type Enum: $addressTypeEnum');
 
       // Build query parameters - all parameters go in the URL
       final Map<String, String> queryParams = {
@@ -158,13 +158,13 @@ class UserApi {
         '$locationBaseUrl/createAddresses',
       ).replace(queryParameters: queryParams);
 
-      print('🔗 Request URI: $uri');
+      Logger.info('🔗 Request URI: $uri');
 
       // Create multipart request
       final request = http.MultipartRequest('POST', uri);
       request.headers.addAll({'Authorization': 'Bearer $token'});
 
-      print('Request fields: ${request.fields}');
+      Logger.info('Request fields: ${request.fields}');
 
       // Add image file if provided
       if (imagePath != null && imagePath.isNotEmpty) {
@@ -174,18 +174,18 @@ class UserApi {
             imagePath,
           );
           request.files.add(imageFile);
-          print('📷 Image added: $imagePath');
+          Logger.info('📷 Image added: $imagePath');
         } catch (imageError) {
-          print('⚠️ Failed to add image: $imageError');
+          Logger.warn('⚠️ Failed to add image: $imageError');
         }
       }
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      print('🌐 Create Address Response:');
-      print('   - Status Code: ${response.statusCode}');
-      print('   - Body: ${response.body}');
+      Logger.info('🌐 Create Address Response:');
+      Logger.info('   - Status Code: ${response.statusCode}');
+      Logger.info('   - Body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -203,8 +203,7 @@ class UserApi {
         );
       }
     } catch (e, stackTrace) {
-      print('❌ Create Address Error: $e');
-      print('❌ Stack trace: $stackTrace');
+      Logger.error('❌ Create Address Error: $e', e, stackTrace);
       return ApiResponse<dynamic>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -223,13 +222,15 @@ class UserApi {
     String roles = 'CUSTOMER',
   }) async {
     try {
-      print('🚀 Registering user...');
-      print('📧 Email: $email');
-      print('📱 Phone: $phoneNumber');
-      print('👤 Name: $fullName');
-      print('🌍 Location: $location');
-      print('🔗 Endpoint: http://129.151.188.8:8085/api/customers/register');
-      print('🕒 Starting registration POST request...');
+      Logger.info('🚀 Registering user...');
+      Logger.info('📧 Email: $email');
+      Logger.info('📱 Phone: $phoneNumber');
+      Logger.info('👤 Name: $fullName');
+      Logger.info('🌍 Location: $location');
+      Logger.info(
+        '🔗 Endpoint: http://129.151.188.8:8085/api/customers/register',
+      );
+      Logger.info('🕒 Starting registration POST request...');
       final startTime = DateTime.now();
 
       final response = await http.post(
@@ -247,25 +248,25 @@ class UserApi {
       );
       final endTime = DateTime.now();
       final duration = endTime.difference(startTime);
-      print(
+      Logger.info(
         '🕒 Registration request completed in ${duration.inMilliseconds} ms',
       );
 
-      print('🌐 Registration Response:');
-      print('   - Status Code: ${response.statusCode}');
-      print('   - Body: ${response.body}');
+      Logger.info('🌐 Registration Response:');
+      Logger.info('   - Status Code: ${response.statusCode}');
+      Logger.info('   - Body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print('✅ Registration successful!');
+        Logger.info('✅ Registration successful!');
         return ApiResponse<RegisterResponse>(
           success: true,
           message: data['message'] ?? 'Registration successful',
           data: RegisterResponse.fromJson(data),
         );
       } else {
-        print('❌ Registration failed.');
+        Logger.warn('❌ Registration failed.');
         return ApiResponse<RegisterResponse>(
           success: false,
           message: data['message'] ?? 'Registration failed',
@@ -273,8 +274,10 @@ class UserApi {
         );
       }
     } catch (e) {
-      print('❌ Registration Error: $e');
-      print('❌ Registration request failed due to network or server issue.');
+      Logger.error('❌ Registration Error: $e', e, null);
+      Logger.error(
+        '❌ Registration request failed due to network or server issue.',
+      );
       return ApiResponse<RegisterResponse>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -288,10 +291,10 @@ class UserApi {
     required String code,
   }) async {
     try {
-      print('🌐 Verify Code API Call:');
-      print('   - URL: $baseUrl/verify-otp');
-      print('   - Email: $verificationKey');
-      print('   - OTP: $code');
+      Logger.info('🌐 Verify Code API Call:');
+      Logger.info('   - URL: $baseUrl/verify-otp');
+      Logger.info('   - Email: $verificationKey');
+      Logger.info('   - OTP: $code');
       print(jsonEncode({'email': verificationKey, 'otp': code}));
 
       final response = await http.post(
@@ -300,9 +303,9 @@ class UserApi {
         body: jsonEncode({'email': verificationKey, 'otp': code}),
       );
 
-      print('🌐 Verify Response:');
-      print('   - Status: ${response.statusCode}');
-      print('   - Body: ${response.body}');
+      Logger.info('🌐 Verify Response:');
+      Logger.info('   - Status: ${response.statusCode}');
+      Logger.info('   - Body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -319,7 +322,9 @@ class UserApi {
             data: loginData,
           );
         } catch (parseError) {
-          print('⚠️ VerifyCode: failed to parse LoginResponse: $parseError');
+          Logger.warn(
+            '⚠️ VerifyCode: failed to parse LoginResponse: $parseError',
+          );
           // Return success based on HTTP status but without parsed data.
           return ApiResponse<LoginResponse>(
             success: true,
@@ -335,7 +340,7 @@ class UserApi {
         );
       }
     } catch (e) {
-      print('❌ Verify Code Error: $e');
+      Logger.error('❌ Verify Code Error: $e', e, null);
       return ApiResponse<LoginResponse>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -349,22 +354,22 @@ class UserApi {
     String? method, // 'phone' or 'email'
   }) async {
     try {
-      print('🌐 Resend OTP API Call:');
-      print('   - URL: $baseUrl/resend-otp');
-      print('   - Verification Key: $verificationKey');
-      print('   - Method: $method');
+      Logger.info('🌐 Resend OTP API Call:');
+      Logger.info('   - URL: $baseUrl/resend-otp');
+      Logger.info('   - Verification Key: $verificationKey');
+      Logger.info('   - Method: $method');
 
       // Use email as path parameter in endpoint
       final url = '$baseUrl/resend-otp/$verificationKey';
-      print('🌐 Resend OTP API Call:');
-      print('   - URL: $url');
-      print('   - Method: $method');
+      Logger.info('🌐 Resend OTP API Call:');
+      Logger.info('   - URL: $url');
+      Logger.info('   - Method: $method');
 
       final response = await http.post(Uri.parse(url), headers: _getHeaders());
 
-      print('🌐 Resend Response:');
-      print('   - Status: ${response.statusCode}');
-      print('   - Body: ${response.body}');
+      Logger.info('🌐 Resend Response:');
+      Logger.info('   - Status: ${response.statusCode}');
+      Logger.info('   - Body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -381,7 +386,7 @@ class UserApi {
         );
       }
     } catch (e) {
-      print('❌ Resend Code Error: $e');
+      Logger.error('❌ Resend Code Error: $e', e, null);
       return ApiResponse<ResendCodeResponse>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -401,19 +406,19 @@ class UserApi {
         body: jsonEncode({'email': email, 'password': password}),
       );
 
-      print('🌐 Raw API Response:');
-      print('   - Status Code: ${response.statusCode}');
-      print('   - Body: ${response.body}');
+      Logger.info('🌐 Raw API Response:');
+      Logger.info('   - Status Code: ${response.statusCode}');
+      Logger.info('   - Body: ${response.body}');
 
       if (response.statusCode != 200) {
         String errorMessage = 'Login failed';
-        print('❌ Login failed. Status: ${response.statusCode}');
+        Logger.warn('❌ Login failed. Status: ${response.statusCode}');
         try {
           final errorData = jsonDecode(response.body);
-          print('❌ Error response JSON: $errorData');
+          Logger.error('❌ Error response JSON: $errorData');
           errorMessage = errorData['message'] ?? errorMessage;
         } catch (e) {
-          print('❌ Error response not JSON: ${response.body}');
+          Logger.error('❌ Error response not JSON: ${response.body}');
         }
         return ApiResponse<LoginResponse>(
           success: false,
@@ -422,7 +427,7 @@ class UserApi {
       }
 
       final data = jsonDecode(response.body);
-      print('✅ Login success. Response JSON: $data');
+      Logger.info('✅ Login success. Response JSON: $data');
       // You may need to update this part based on the actual response structure
       return ApiResponse<LoginResponse>(
         success: true,
@@ -430,7 +435,7 @@ class UserApi {
         data: LoginResponse.fromJson(data),
       );
     } catch (e) {
-      print('❌ API Error: $e');
+      Logger.error('❌ API Error: $e', e, null);
       return ApiResponse<LoginResponse>(
         success: false,
         message: 'Network error: Unable to connect to server',
@@ -477,8 +482,10 @@ class UserApi {
     try {
       final uri = Uri.parse('$locationBaseUrl/getAllCountries');
       final response = await http.get(uri, headers: _getHeaders(token: token));
-      print('🔔 getAllCountries raw response: status=${response.statusCode}');
-      print('🔔 getAllCountries body: ${response.body}');
+      Logger.info(
+        '🔔 getAllCountries raw response: status=${response.statusCode}',
+      );
+      Logger.info('🔔 getAllCountries body: ${response.body}');
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
         final list = data['data'] as List? ?? [];
@@ -499,7 +506,7 @@ class UserApi {
         );
       }
     } catch (e) {
-      print('❌ getAllCountries Error: $e');
+      Logger.error('❌ getAllCountries Error: $e', e, null);
       return ApiResponse<List<Map<String, dynamic>>>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -520,7 +527,7 @@ class UserApi {
       print(
         '🔔 getCitiesByCountry raw response (countryId=$countryId): status=${response.statusCode}',
       );
-      print('🔔 getCitiesByCountry body: ${response.body}');
+      Logger.info('🔔 getCitiesByCountry body: ${response.body}');
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
         final list = data['data'] as List? ?? [];
@@ -540,7 +547,7 @@ class UserApi {
         );
       }
     } catch (e) {
-      print('❌ getCitiesByCountry Error: $e');
+      Logger.error('❌ getCitiesByCountry Error: $e', e, null);
       return ApiResponse<List<Map<String, dynamic>>>(
         success: false,
         message: 'Network error: ${e.toString()}',
@@ -722,7 +729,7 @@ class UserApi {
       );
 
       final data = jsonDecode(response.body);
-      print('ResetKey used: $resetKey');
+      Logger.info('ResetKey used: $resetKey');
 
       if (response.statusCode == 200) {
         return ApiResponse<user_model.User>(
@@ -820,17 +827,17 @@ class UserApi {
     required String token,
   }) async {
     try {
-      print('🌐 Making API call to: $baseUrl/locations');
-      print('🔑 Token: ${token.substring(0, 20)}...');
+      Logger.info('🌐 Making API call to: $baseUrl/locations');
+      Logger.info('🔑 Token: ${token.substring(0, 20)}...');
 
       final response = await http.get(
         Uri.parse('$baseUrl/locations'),
         headers: _getHeaders(token: token),
       );
 
-      print('📡 API Response:');
-      print('   - Status: ${response.statusCode}');
-      print('   - Body: ${response.body}');
+      Logger.info('📡 API Response:');
+      Logger.info('   - Status: ${response.statusCode}');
+      Logger.info('   - Body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -847,7 +854,7 @@ class UserApi {
         );
       }
     } catch (e) {
-      print('❌ API Error: $e');
+      Logger.error('❌ API Error: $e', e, null);
       return ApiResponse<UserLocationsResponse>(
         success: false,
         message: 'Network error: ${e.toString()}',
