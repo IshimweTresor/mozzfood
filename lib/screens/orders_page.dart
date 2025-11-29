@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vuba/response/api_response.dart';
+import '../api/location.api.dart';
 import 'dart:math' as math;
 import '../utils/colors.dart';
 import '../widgets/custom_button.dart';
@@ -20,6 +21,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   List<Order> _orders = [];
   bool _isLoading = true;
+  String? _defaultAddressText;
 
   @override
   void initState() {
@@ -110,10 +112,57 @@ class _OrdersPageState extends State<OrdersPage> {
         customerId: customerIdInt,
       );
 
+      // Fetch saved addresses once and keep a default address for display
+      try {
+        final addrResp = await LocationApi.getCustomerAddresses(
+          token: token,
+          customerId: customerId,
+        );
+        if (addrResp.success && addrResp.data != null) {
+          final list = addrResp.data!.addresses;
+          if (list.isNotEmpty) {
+            final defaultAddr = list.firstWhere(
+              (a) => a.isDefault == true,
+              orElse: () => list.first,
+            );
+            _defaultAddressText = defaultAddr.address;
+          }
+        }
+      } catch (e) {
+        print('⚠️ Could not fetch saved addresses: $e');
+      }
+
       if (mounted) {
         setState(() {
           _isLoading = false;
           if (response.success && response.data != null) {
+            // DEBUG: Log raw -> parsed timestamps for each order to help diagnose timezone issues
+            try {
+              for (final o in response.data!) {
+                try {
+                  print(
+                    '🕒 Order ${o.orderId} raw orderPlacedAt: ${o.orderPlacedAt}',
+                  );
+                  print('🕒 Order ${o.orderId} raw createdAt: ${o.createdAt}');
+                  try {
+                    final parsedCreated =
+                        o.createdAt != null && o.createdAt!.isNotEmpty
+                        ? DateTime.parse(o.createdAt!).toLocal()
+                        : null;
+                    print(
+                      '🕒 Order ${o.orderId} parsed createdAt: $parsedCreated',
+                    );
+                  } catch (_) {}
+                  final parsed = _parseOrderDate(o);
+                  print('🕒 Order ${o.orderId} parsed local datetime: $parsed');
+                } catch (e) {
+                  print(
+                    '⚠️ Failed parsing timestamp for order ${o.orderId}: $e',
+                  );
+                }
+              }
+            } catch (_) {}
+
             // Filter orders based on selected status
             _orders = response.data!.where((order) {
               switch (_selectedStatus) {
@@ -595,11 +644,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _formatDate(
-                      order.createdAt != null
-                          ? DateTime.parse(order.createdAt!)
-                          : DateTime.now(),
-                    ),
+                    _formatOrderDisplay(order),
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -652,7 +697,9 @@ class _OrdersPageState extends State<OrdersPage> {
                       ),
                     ),
                     Text(
-                      order.deliveryAddress ?? 'No address provided',
+                      order.deliveryAddress ??
+                          _defaultAddressText ??
+                          'No address provided',
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.onBackground,
@@ -772,19 +819,166 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
+    // Use device local time (assumed SAST for Rwanda/Pretoria users).
+    final nowLocal = DateTime.now();
+    final localDate = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      date.hour,
+      date.minute,
+      date.second,
+    );
 
-    if (difference.inDays == 0) {
-      if (difference.inHours == 0) {
-        return '${difference.inMinutes} minutes ago';
+    final nowDateOnly = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
+    final dateOnly = DateTime(localDate.year, localDate.month, localDate.day);
+    final diffDays = nowDateOnly.difference(dateOnly).inDays;
+
+    final timeStr =
+        '${_twoDigit(localDate.hour)}:${_twoDigit(localDate.minute)}';
+    final diff = nowLocal.difference(localDate);
+
+    if (diffDays == 0) {
+      if (diff.inHours == 0) {
+        return '${diff.inMinutes} minutes ago ($timeStr SAST)';
       }
-      return '${difference.inHours} hours ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
+      return '${diff.inHours} hours ago ($timeStr SAST)';
+    } else if (diffDays == 1) {
+      return 'Yesterday, $timeStr SAST';
     } else {
-      return '${difference.inDays} days ago';
+      // If the parsed time is exactly midnight, it's likely the server sent a date-only
+      // value (e.g. "2025-11-29") — show a clean date instead of "00:00 SAST".
+      final isMidnight =
+          localDate.hour == 0 && localDate.minute == 0 && localDate.second == 0;
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      final monthStr = months[localDate.month - 1];
+      if (isMidnight) {
+        if (localDate.year == nowLocal.year) {
+          return '${_twoDigit(localDate.day)} $monthStr';
+        } else {
+          return '${_twoDigit(localDate.day)} $monthStr ${localDate.year}';
+        }
+      }
+
+      if (localDate.year == nowLocal.year) {
+        return '${_twoDigit(localDate.day)} $monthStr, $timeStr SAST';
+      } else {
+        return '${_twoDigit(localDate.day)} $monthStr ${localDate.year}, $timeStr SAST';
+      }
     }
+  }
+
+  String _formatOrderDisplay(Order order) {
+    // If server sent date-only (no time) for orderPlacedAt or createdAt,
+    // show only the date. Otherwise show the full formatted date/time.
+    final raw = order.orderPlacedAt ?? order.createdAt ?? '';
+    final hasTime = raw.contains('T') || raw.contains(':');
+
+    final dt = _parseOrderDate(order);
+
+    if (!hasTime) {
+      // Show date-only
+      final localDate = DateTime(dt.year, dt.month, dt.day);
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      final monthStr = months[localDate.month - 1];
+      final nowLocal = DateTime.now();
+      if (localDate.year == nowLocal.year) {
+        return '${_twoDigit(localDate.day)} $monthStr';
+      }
+      return '${_twoDigit(localDate.day)} $monthStr ${localDate.year}';
+    }
+
+    // Otherwise show the usual detailed format
+    return _formatDate(dt);
+  }
+
+  DateTime _parseOrderDate(Order order) {
+    // Prefer explicit orderPlacedAt (ISO8601) then createdAt, fallback to now
+    // Convert parsed timestamps to Pretoria time (SAST, UTC+2) for consistent display
+    final pretoriaOffset = const Duration(hours: 2);
+
+    DateTime? tryParseToLocal(String raw) {
+      try {
+        final parsed = DateTime.parse(raw).toLocal();
+        return parsed;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    // Prefer fields that include time. If orderPlacedAt is date-only (e.g. "2025-11-29"),
+    // prefer createdAt (which often contains the exact timestamp). If neither contains
+    // a time, fall back to the date-only value.
+    if (order.orderPlacedAt != null && order.orderPlacedAt!.isNotEmpty) {
+      final raw = order.orderPlacedAt!;
+      final hasTime = raw.contains('T') || raw.contains(':');
+      if (hasTime) {
+        final dt = tryParseToLocal(raw);
+        if (dt != null) return dt;
+      }
+    }
+
+    if (order.createdAt != null && order.createdAt!.isNotEmpty) {
+      final dt = tryParseToLocal(order.createdAt!);
+      if (dt != null) return dt;
+    }
+
+    // As a final attempt, use orderPlacedAt even if it was date-only (midnight).
+    if (order.orderPlacedAt != null && order.orderPlacedAt!.isNotEmpty) {
+      final raw = order.orderPlacedAt!;
+      final dt = tryParseToLocal(raw);
+      if (dt != null) {
+        // If server sent a date-only value (e.g. "2025-11-29") and that date
+        // equals today (in device local time), use the current time as a best-effort
+        // approximation so the UI doesn't show 00:00 SAST for a recent order.
+        final hasTime = raw.contains('T') || raw.contains(':');
+        final today = DateTime.now();
+        if (!hasTime &&
+            dt.year == today.year &&
+            dt.month == today.month &&
+            dt.day == today.day) {
+          return DateTime.now();
+        }
+        return dt;
+      }
+    }
+
+    // If parsing failed entirely, return current Pretoria time as fallback
+    final nowPretoria = DateTime.now().toUtc().add(pretoriaOffset);
+    return DateTime(
+      nowPretoria.year,
+      nowPretoria.month,
+      nowPretoria.day,
+      nowPretoria.hour,
+      nowPretoria.minute,
+      nowPretoria.second,
+    );
   }
 
   Color _getStatusColor(Order order) {
@@ -1077,12 +1271,49 @@ class _OrdersPageState extends State<OrdersPage> {
                     ),
                   ),
                 if (step.timestamp != null)
-                  Text(
-                    step.timestamp!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
+                  Builder(
+                    builder: (context) {
+                      var ts = step.timestamp!;
+                      try {
+                        final raw = step.timestamp!;
+                        final hasTime = raw.contains('T') || raw.contains(':');
+                        final parsed = DateTime.parse(raw).toLocal();
+                        if (!hasTime) {
+                          const months = [
+                            'Jan',
+                            'Feb',
+                            'Mar',
+                            'Apr',
+                            'May',
+                            'Jun',
+                            'Jul',
+                            'Aug',
+                            'Sep',
+                            'Oct',
+                            'Nov',
+                            'Dec',
+                          ];
+                          final monthStr = months[parsed.month - 1];
+                          final now = DateTime.now();
+                          if (parsed.year == now.year) {
+                            ts = '${_twoDigit(parsed.day)} $monthStr';
+                          } else {
+                            ts =
+                                '${_twoDigit(parsed.day)} $monthStr ${parsed.year}';
+                          }
+                        } else {
+                          ts =
+                              '${parsed.year}-${_twoDigit(parsed.month)}-${_twoDigit(parsed.day)} ${_twoDigit(parsed.hour)}:${_twoDigit(parsed.minute)} SAST';
+                        }
+                      } catch (_) {}
+                      return Text(
+                        ts,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      );
+                    },
                   ),
               ],
             ),
@@ -1091,6 +1322,8 @@ class _OrdersPageState extends State<OrdersPage> {
       ),
     );
   }
+
+  String _twoDigit(int n) => n.toString().padLeft(2, '0');
 
   Future<void> _reorder(Order order) async {
     try {

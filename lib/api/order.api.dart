@@ -19,20 +19,39 @@ class OrderApi {
   // country code without leading plus (e.g. 250784107365).
   // Adjust this function if you support multiple countries or obtain country from user profile.
   static String normalizeMsisdn(String msisdn) {
-    final s = msisdn.trim();
+    var s = msisdn.trim();
     if (s.isEmpty) return s;
-    // Already in international format without plus
+
+    // Remove any non-digit characters (spaces, +, dashes, parentheses)
+    s = s.replaceAll(RegExp(r'\D'), '');
+
+    // Remove leading international prefix expressed as 00
+    if (s.startsWith('00')) s = s.substring(2);
+
+    // If user entered a local number starting with 0 (e.g. 07xxxxxxx), drop the 0
+    if (s.startsWith('0') && s.length > 1) s = s.substring(1);
+
+    // If number already contains country code 250, keep it
     if (s.startsWith('250')) return s;
-    // +2507xxxxxxx -> 2507xxxxxxx
-    if (s.startsWith('+')) return s.substring(1);
-    // 002507xxxxxxx -> 2507xxxxxxx
-    if (s.startsWith('00')) return s.substring(2);
-    // 07xxxxxxx -> 2507xxxxxxx (local Rwandan mobile)
-    if (s.startsWith('0') && s.length >= 8) return '250${s.substring(1)}';
-    // If looks like 9-digit local number (starts with 7)
-    if (RegExp(r'^\d+$').hasMatch(s) && s.length == 9) return '250$s';
-    // Fallback: return as-is
-    return s;
+
+    // If looks like a local 9-digit number (e.g. 7xxxxxxxx), prefix Rwanda code
+    if (s.length == 9) return '250$s';
+
+    // If length is reasonable (9-15 digits) return as-is; otherwise return digits-only string
+    if (s.length >= 9 && s.length <= 15) return s;
+
+    return s; // fallback: cleaned digits
+  }
+
+  /// Very small validator to ensure we send a reasonable MSISDN to backend.
+  /// Returns true for numbers that look like an international Rwanda number
+  /// (e.g. `2507xxxxxxxx`) or a plain local 9-digit number.
+  static bool isValidMsisdn(String msisdn) {
+    final s = msisdn.trim().replaceAll(RegExp(r'\D'), '');
+    if (s.isEmpty) return false;
+
+    // Accept common valid lengths for MSISDNs (local and international)
+    return s.length >= 9 && s.length <= 15;
   }
 
   /// Get all orders for a customer
@@ -188,15 +207,13 @@ class OrderApi {
       Logger.info('🛒 Items: ${orderItems.length}');
       Logger.info('💰 Final Amount: $finalAmount');
 
-      // Get current date in yyyy-MM-dd format
+      // Get current datetime in ISO8601 (includes date and time)
       final now = DateTime.now();
-      final orderPlacedAt =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final orderPlacedAt = now.toIso8601String();
 
-      // Calculate estimated delivery (30 minutes from now)
+      // Calculate estimated delivery (30 minutes from now) and include time
       final estimatedDelivery = now.add(const Duration(minutes: 30));
-      final estimatedDeliveryDate =
-          '${estimatedDelivery.year}-${estimatedDelivery.month.toString().padLeft(2, '0')}-${estimatedDelivery.day.toString().padLeft(2, '0')}';
+      final estimatedDeliveryDate = estimatedDelivery.toIso8601String();
 
       final int? deliveryAddressIdNum = int.tryParse(
         deliveryAddressId,
@@ -717,6 +734,22 @@ class OrderApi {
       final normalizedMsisdn = normalizeMsisdn(msisdn);
       if (normalizedMsisdn != msisdn) {
         Logger.info('🔁 Normalized msisdn: $msisdn -> $normalizedMsisdn');
+      }
+      // Validate MSISDN before sending the request. Don't abort here —
+      // instead log a warning and attempt the request with sanitized digits.
+      if (!isValidMsisdn(normalizedMsisdn)) {
+        Logger.warn(
+          '⚠️ Warning: Unusual MSISDN format after normalization: $normalizedMsisdn',
+        );
+      }
+      if (normalizedMsisdn.isEmpty) {
+        final msg = 'Empty mobile money number provided';
+        Logger.warn('⚠️ $msg');
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: msg,
+          error: null,
+        );
       }
       final resolvedCallback =
           callback ?? '$baseUrl/api/v1/momo/webhook/callback';

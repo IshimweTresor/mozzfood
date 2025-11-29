@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/order.api.dart';
+import '../api/location.api.dart';
 import '../utils/logger.dart';
 import '../models/order.model.dart';
 import '../models/user.model.dart';
@@ -14,6 +15,7 @@ import 'payment_method_page.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/safe_network_image.dart';
 import 'waiting_for_payment_page.dart';
+import 'mobile_wallet_numbers_page.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final String paymentMethod;
@@ -34,6 +36,7 @@ class OrderSummaryPage extends StatefulWidget {
 
 class _OrderSummaryPageState extends State<OrderSummaryPage> {
   final TextEditingController _instructionsController = TextEditingController();
+  final TextEditingController _momoController = TextEditingController();
   bool _isPlacingOrder = false;
 
   CartProvider get cartProvider =>
@@ -44,6 +47,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   @override
   void initState() {
     super.initState();
+    // Pre-fill MOMO input with the selected number so user can edit it
+    _momoController.text = widget.selectedNumber;
     // No special payment initialization required here.
   }
 
@@ -107,8 +112,35 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         );
       }
 
-      // ✅ Convert deliveryAddressId properly
-      String addressId = widget.selectedLocation?.id ?? '1';
+      // Determine delivery address: prefer the selected location; if none
+      // was provided, fetch saved customer addresses and use default (or first).
+      SavedLocation? chosenLocation = widget.selectedLocation;
+      if (chosenLocation == null) {
+        try {
+          final addrResp = await LocationApi.getCustomerAddresses(
+            token: token,
+            customerId: customerId,
+          );
+          if (addrResp.success && addrResp.data != null) {
+            final list = addrResp.data!.addresses;
+            if (list.isNotEmpty) {
+              // pick default if present, otherwise first
+              final defaultAddr = list.firstWhere(
+                (a) => a.isDefault == true,
+                orElse: () => list.first,
+              );
+              chosenLocation = defaultAddr;
+              Logger.info('📍 Using saved address: ${chosenLocation.address}');
+            }
+          }
+        } catch (e) {
+          Logger.warn('⚠️ Could not fetch saved addresses: $e');
+        }
+      }
+
+      // Convert deliveryAddressId properly
+      String addressId =
+          chosenLocation?.id ?? widget.selectedLocation?.id ?? '1';
       int deliveryAddressId;
       try {
         deliveryAddressId = int.parse(addressId);
@@ -130,7 +162,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
             ? widget.selectedNumber
             : '0000000000',
         orderItems: orderItems,
-        deliveryAddress: widget.selectedLocation?.address ?? 'Unknown Location',
+        deliveryAddress:
+            chosenLocation?.address ??
+            widget.selectedLocation?.address ??
+            'Unknown Location',
         subTotal: cartProvider.subTotal,
         deliveryFee: cartProvider.deliveryFee,
         discountAmount: cartProvider.discountAmount,
@@ -174,10 +209,51 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
             final externalId =
                 createdOrderId ??
                 DateTime.now().millisecondsSinceEpoch.toString();
+
+            // Allow any entered MoMo number — normalize and validate it first.
+            final rawNumber = _momoController.text.trim().isNotEmpty
+                ? _momoController.text.trim()
+                : widget.selectedNumber.trim();
+            final normalizedNumber = OrderApi.normalizeMsisdn(rawNumber);
+            if (rawNumber.isEmpty ||
+                !OrderApi.isValidMsisdn(normalizedNumber)) {
+              if (mounted) {
+                await showDialog<void>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Invalid Number'),
+                    content: const Text(
+                      'Please select or enter a valid mobile money number to receive the payment request.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+
+                // Redirect the user to the numbers page so they can add/select a valid number.
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MobileWalletNumbersPage(
+                      paymentMethod: 'MOMO by MTN',
+                      selectedLocation:
+                          widget.selectedLocation ??
+                          SavedLocation(lat: 0, lng: 0, name: '', address: ''),
+                    ),
+                  ),
+                );
+              }
+              return;
+            }
+
             final momoResp = await OrderApi.momoRequest(
               token: token,
               externalId: externalId,
-              msisdn: widget.selectedNumber,
+              msisdn: normalizedNumber,
               amount: cartProvider.finalAmount,
               payerMessageTitle: 'Payment for order $externalId',
               // callback will default to the shared webhook: /api/v1/momo/webhook/callback
@@ -322,6 +398,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   @override
   void dispose() {
     _instructionsController.dispose();
+    _momoController.dispose();
     super.dispose();
   }
 
@@ -471,6 +548,40 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                       hasChangeButton: true,
                       onChangePressed: _changePaymentMethod,
                     ),
+
+                    // If MOMO is selected, allow entering/editing the recipient number here
+                    if (widget.paymentMethod == 'MOMO by MTN')
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Mobile Money Number',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _momoController,
+                              keyboardType: TextInputType.phone,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Enter mobile money number',
+                                hintStyle: const TextStyle(color: Colors.grey),
+                                filled: true,
+                                fillColor: const Color(0xFF2A2A2A),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                     const SizedBox(height: 20),
 
