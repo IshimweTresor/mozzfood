@@ -63,7 +63,12 @@ class _SignUpPageState extends State<SignUpPage> {
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'Email is required';
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}\$').hasMatch(value)) {
+    // Allow common valid emails. Ensure the pattern ends with $ (end anchor)
+    if (!RegExp(
+      r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,}$',
+      caseSensitive: false,
+    ).hasMatch(value)) {
+      // Fallback simpler check if the regex fails (defensive)
       return 'Please enter a valid email';
     }
     return null;
