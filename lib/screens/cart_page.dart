@@ -334,7 +334,7 @@ class CartPage extends StatelessWidget {
                     'RWF ${cartProvider.totalPrice}',
                   ),
                   _buildSummaryRow('Container charge:', 'RWF 0'),
-                  _buildSummaryRow('Delivery Fee:', 'RWF 4,500'),
+                  _buildSummaryRow('Delivery Fee:', 'RWF 2,000'),
                   const SizedBox(height: 8),
                   const Divider(color: Color(0xFF3A3A3A), thickness: 1),
                   const SizedBox(height: 8),
