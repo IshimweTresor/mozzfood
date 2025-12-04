@@ -340,7 +340,7 @@ class CartPage extends StatelessWidget {
                   const SizedBox(height: 8),
                   _buildSummaryRow(
                     'Total amount',
-                    'RWF ${cartProvider.totalPrice + 4500}',
+                    'RWF ${cartProvider.totalPrice + 2000}',
                     isTotal: true,
                   ),
                 ],
