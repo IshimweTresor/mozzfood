@@ -4,7 +4,7 @@ import '../models/menuItem.model.dart';
 import '../response/api_response.dart';
 
 class MenuItemApi {
-  static const String baseUrl = 'http://129.151.188.8:8085/api/menu-items';
+  static const String baseUrl = 'http://delivery.apis.ivas.rw/api/menu-items';
 
   // Get menu items by restaurant ID
   static Future<ApiResponse<List<MenuItem>>> getMenuItemsByRestaurant(

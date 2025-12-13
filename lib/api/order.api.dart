@@ -7,7 +7,7 @@ import 'package:vuba/response/api_response.dart';
 import '../utils/logger.dart';
 
 class OrderApi {
-  static const String baseUrl = 'http://129.151.188.8:8085';
+  static const String baseUrl = 'http://delivery.apis.ivas.rw';
 
   static Map<String, String> _getHeaders({String? token}) {
     final headers = {'Content-Type': 'application/json'};

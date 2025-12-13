@@ -1,12 +1,14 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:vuba/response/api_response.dart';
 import 'package:vuba/response/auth_responses.dart';
+import 'package:vuba/response/user_location_responses.dart';
 import 'package:vuba/response/user_responses.dart';
-import '../models/user.model.dart' as user_model;
+
 // Import LoginResponse from user.model.dart
 import '../models/user.model.dart' show LoginResponse;
-import 'package:vuba/response/user_location_responses.dart';
+import '../models/user.model.dart' as user_model;
 import '../utils/logger.dart';
 
 class UserApi {
@@ -15,7 +17,7 @@ class UserApi {
   getCustomerAddresses({required String token, required int customerId}) async {
     try {
       final uri = Uri.parse(
-        'http://129.151.188.8:8085/api/locations/getCustomerAddresses',
+        'http://delivery.apis.ivas.rw/api/locations/getCustomerAddresses',
       ).replace(queryParameters: {'customerId': customerId.toString()});
 
       final response = await http.get(uri, headers: _getHeaders(token: token));
@@ -75,9 +77,9 @@ class UserApi {
   // For Android Emulator, use 10.0.2.2 instead of localhost
   // For real device on same network, use your computer's local IP (e.g., 192.168.x.x)
   // For remote server, use the actual server IP/domain
-  static const String baseUrl = 'http://129.151.188.8:8085/api/auth';
+  static const String baseUrl = 'http://delivery.apis.ivas.rw/api/auth';
   static const String locationBaseUrl =
-      'http://129.151.188.8:8085/api/locations';
+      'http://delivery.apis.ivas.rw/api/locations';
 
   // Alternative: Use this if backend is on your local machine
   // static const String baseUrl = 'http://10.0.2.2:8085/api/auth'; // For Android Emulator
@@ -228,13 +230,13 @@ class UserApi {
       Logger.info('👤 Name: $fullName');
       Logger.info('🌍 Location: $location');
       Logger.info(
-        '🔗 Endpoint: http://129.151.188.8:8085/api/customers/register',
+        '🔗 Endpoint: http://delivery.apis.ivas.rw/api/customers/register',
       );
       Logger.info('🕒 Starting registration POST request...');
       final startTime = DateTime.now();
 
       final response = await http.post(
-        Uri.parse('http://129.151.188.8:8085/api/customers/register'),
+        Uri.parse('http://delivery.apis.ivas.rw/api/customers/register'),
         headers: _getHeaders(),
         body: jsonEncode({
           'fullNames': fullName,
