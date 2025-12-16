@@ -30,6 +30,13 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
   List<Map<String, dynamic>> _countries = [];
   final Map<int, List<Map<String, dynamic>>> _citiesCache = {};
 
+  // Search functionality
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _showSearchResults = false;
+  bool _isSearching = false;
+  bool _isInitializingLocation = false;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +44,12 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
   }
 
   Future<void> _initLocation() async {
+    setState(() {
+      _isInitializingLocation = true;
+    });
+
+    bool locationObtained = false;
+
     try {
       // Prefer device GPS for better accuracy even when a country shortcut
       // is requested (e.g. "Open Rwanda Map"). This ensures the map will
@@ -46,13 +59,15 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
         // Always try to obtain device location first (fast timeout).
         try {
           final pos = await _determinePosition().timeout(
-            const Duration(seconds: 10),
+            const Duration(seconds: 8),
             onTimeout: () => throw Exception('Timeout'),
           );
           _center = ll.LatLng(pos.latitude, pos.longitude);
-        } catch (_) {
+          locationObtained = true;
+        } catch (e) {
           // Silent fallback to reasonable country center when device
           // location can't be obtained (permissions/service off).
+          print('Location error: $e');
           final c = widget.initialCountry!.toLowerCase();
           if (c.contains('rwanda')) {
             _center = ll.LatLng(-1.9441, 30.0619);
@@ -65,16 +80,21 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
         // takes too long so the map remains responsive.
         try {
           final pos = await _determinePosition().timeout(
-            const Duration(seconds: 10),
+            const Duration(seconds: 8),
             onTimeout: () => throw Exception('Timeout'),
           );
           _center = ll.LatLng(pos.latitude, pos.longitude);
-        } catch (_) {
+          locationObtained = true;
+        } catch (e) {
           // Keep default center if unable to determine device position.
+          print('Location error: $e');
         }
       }
 
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
+
       // move the map to the center if controller is ready
       try {
         _mapController.move(_center, 15.0);
@@ -85,8 +105,26 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
       } catch (_) {}
       // load countries for city resolution
       _loadCountries();
+
+      // Show feedback if location wasn't obtained
+      if (!locationObtained && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Using default location. Enable location services for better accuracy.',
+            ),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e) {
-      // ignore - keep default center
+      print('Init location error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInitializingLocation = false;
+        });
+      }
     }
   }
 
@@ -153,6 +191,79 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
       // ignore errors silently for now
     }
     return null;
+  }
+
+  Future<void> _searchLocation(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _showSearchResults = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    try {
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/search',
+      ).replace(queryParameters: {'q': query, 'format': 'json', 'limit': '10'});
+      final res = await http
+          .get(
+            uri,
+            headers: {
+              'User-Agent': 'mozzfood/1.0 (contact: support@example.com)',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        final results = json.decode(res.body) as List<dynamic>;
+        if (mounted) {
+          setState(() {
+            _searchResults = results
+                .cast<Map<String, dynamic>>()
+                .where((r) => r['lat'] != null && r['lon'] != null)
+                .toList();
+            _showSearchResults = _searchResults.isNotEmpty;
+            _isSearching = false;
+          });
+        }
+      } else {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+        });
+      }
+    } catch (e) {
+      print('Search error: $e');
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectSearchResult(Map<String, dynamic> result) async {
+    final lat = double.tryParse(result['lat'].toString()) ?? 0.0;
+    final lon = double.tryParse(result['lon'].toString()) ?? 0.0;
+
+    setState(() {
+      _center = ll.LatLng(lat, lon);
+      _searchController.clear();
+      _showSearchResults = false;
+      _searchResults = [];
+    });
+
+    try {
+      _mapController.move(_center, 16.0);
+    } catch (_) {}
+
+    await _fetchAddressForCenter();
   }
 
   Future<http.Response?> _createAddressOnBackend(
@@ -232,6 +343,7 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -812,40 +924,156 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
               ),
             ),
 
-            // Top bar
+            // Top bar with search
             Positioned(
               top: 12,
               left: 12,
               right: 12,
-              child: Row(
+              child: Column(
                 children: [
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black),
-                      onPressed: () => Navigator.pop(context),
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.black,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            cursorColor: Colors.black,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                            ),
+                            onChanged: (value) {
+                              _debounce?.cancel();
+                              _debounce = Timer(
+                                const Duration(milliseconds: 300),
+                                () {
+                                  _searchLocation(value);
+                                },
+                              );
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Search location...',
+                              hintStyle: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                              ),
+                              border: InputBorder.none,
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                color: Colors.grey,
+                              ),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? GestureDetector(
+                                      onTap: () {
+                                        _searchController.clear();
+                                        setState(() {
+                                          _searchResults = [];
+                                          _showSearchResults = false;
+                                        });
+                                      },
+                                      child: const Icon(
+                                        Icons.clear,
+                                        color: Colors.grey,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Move the map to pick location',
-                        style: TextStyle(color: Colors.black.withOpacity(0.8)),
+                  // Search results dropdown
+                  if (_showSearchResults && _searchResults.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 250),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _searchResults.length,
+                          itemBuilder: (context, index) {
+                            final result = _searchResults[index];
+                            final displayName =
+                                result['display_name'] as String? ?? '';
+                            return ListTile(
+                              leading: const Icon(
+                                Icons.location_on_outlined,
+                                size: 20,
+                                color: Colors.grey,
+                              ),
+                              title: Text(
+                                displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              onTap: () {
+                                _selectSearchResult(result);
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
+                  if (_isSearching && _searchController.text.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12.0),
+                      child: SizedBox(
+                        height: 30,
+                        child: Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.blue.withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -892,17 +1120,38 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              _displayAddress ??
-                                  '${_center.latitude.toStringAsFixed(6)}, ${_center.longitude.toStringAsFixed(6)}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.black87,
+                            if (_isInitializingLocation)
+                              const Text(
+                                'Getting your location...',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              )
+                            else
+                              Text(
+                                _displayAddress ??
+                                    '${_center.latitude.toStringAsFixed(6)}, ${_center.longitude.toStringAsFixed(6)}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (_addressLoading)
+                            if (_addressLoading && !_isInitializingLocation)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 6.0),
+                                child: SizedBox(
+                                  height: 12,
+                                  width: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            if (_isInitializingLocation)
                               const Padding(
                                 padding: EdgeInsets.only(top: 6.0),
                                 child: SizedBox(
@@ -918,7 +1167,9 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
-                        onPressed: _loading ? null : _onConfirm,
+                        onPressed: (_loading || _isInitializingLocation)
+                            ? null
+                            : _onConfirm,
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -928,7 +1179,7 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: _loading
+                        child: (_loading || _isInitializingLocation)
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,

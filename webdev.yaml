@@ -1,0 +1,5 @@
+# WebDev configuration for Flutter web
+# This file configures the development server settings
+
+# Port configuration
+port: 58140
