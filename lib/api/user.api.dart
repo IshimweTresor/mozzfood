@@ -563,9 +563,9 @@ class UserApi {
       print(
         '🔔 getCitiesByCountry raw response (countryId=$countryId): status=${response.statusCode}',
       );
-      Logger.info('🔔 getCitiesByCountry body: ${response.body}');
-      final data = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
         final list = data['data'] as List? ?? [];
         final parsed = list.map<Map<String, dynamic>>((e) {
           if (e is Map) return Map<String, dynamic>.from(e as Map);
@@ -576,11 +576,27 @@ class UserApi {
           data: parsed,
           message: data['message'] ?? 'Cities fetched',
         );
-      } else {
+      } else if (response.statusCode == 404) {
+        Logger.error('❌ getCitiesByCountry 404: Endpoint not found at $uri');
         return ApiResponse<List<Map<String, dynamic>>>(
           success: false,
-          message: data['message'] ?? 'Failed to fetch cities',
+          message: 'City fetching service is currently unavailable (404)',
         );
+      } else {
+        try {
+          final data = jsonDecode(response.body);
+          return ApiResponse<List<Map<String, dynamic>>>(
+            success: false,
+            message:
+                data['message'] ??
+                'Failed to fetch cities (${response.statusCode})',
+          );
+        } catch (_) {
+          return ApiResponse<List<Map<String, dynamic>>>(
+            success: false,
+            message: 'Server error: ${response.statusCode}',
+          );
+        }
       }
     } catch (e) {
       Logger.error('❌ getCitiesByCountry Error: $e', e, null);

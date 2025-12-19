@@ -3,12 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart' as ll;
-import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart' as ll;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../api/user.api.dart';
 
+import '../api/user.api.dart';
 import '../utils/colors.dart';
 
 class MapLocationPickerPage extends StatefulWidget {
@@ -40,7 +40,9 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
   @override
   void initState() {
     super.initState();
-    _initLocation();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initLocation();
+    });
   }
 
   Future<void> _initLocation() async {
@@ -51,23 +53,37 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
     bool locationObtained = false;
 
     try {
-      // Prefer device GPS for better accuracy even when a country shortcut
-      // is requested (e.g. "Open Rwanda Map"). This ensures the map will
-      // center on the user's actual device location when possible instead
-      // of a static country city coordinate.
-      if (widget.initialCountry != null) {
-        // Always try to obtain device location first (fast timeout).
-        try {
-          final pos = await _determinePosition().timeout(
-            const Duration(seconds: 8),
-            onTimeout: () => throw Exception('Timeout'),
+      // 1. FAST INITIAL ESTIMATE: Check last known position for instant map centering
+      try {
+        final lastPos = await Geolocator.getLastKnownPosition();
+        if (lastPos != null) {
+          print(
+            '📍 Fast estimate (LastKnown): ${lastPos.latitude}, ${lastPos.longitude}',
           );
-          _center = ll.LatLng(pos.latitude, pos.longitude);
-          locationObtained = true;
-        } catch (e) {
-          // Silent fallback to reasonable country center when device
-          // location can't be obtained (permissions/service off).
-          print('Location error: $e');
+          _center = ll.LatLng(lastPos.latitude, lastPos.longitude);
+          _mapController.move(_center, 15.0);
+          setState(() {});
+          _fetchAddressForCenter();
+        }
+      } catch (e) {
+        print('Fast estimate error: $e');
+      }
+
+      // 2. ACCURATE POSITION: Fetch fresh device location
+      try {
+        final pos = await _determinePosition().timeout(
+          const Duration(seconds: 8),
+          onTimeout: () => throw Exception('Timeout'),
+        );
+        print(
+          '📍 Accurate position (Current): ${pos.latitude}, ${pos.longitude}',
+        );
+        _center = ll.LatLng(pos.latitude, pos.longitude);
+        locationObtained = true;
+      } catch (e) {
+        print('Location fetch error: $e');
+        // Fallback to country center only if we still don't have a good position
+        if (!locationObtained && widget.initialCountry != null) {
           final c = widget.initialCountry!.toLowerCase();
           if (c.contains('rwanda')) {
             _center = ll.LatLng(-1.9441, 30.0619);
@@ -75,39 +91,28 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
             _center = ll.LatLng(-25.9653, 32.5832);
           }
         }
-      } else {
-        // No country requested — fetch device location, but timeout if it
-        // takes too long so the map remains responsive.
-        try {
-          final pos = await _determinePosition().timeout(
-            const Duration(seconds: 8),
-            onTimeout: () => throw Exception('Timeout'),
-          );
-          _center = ll.LatLng(pos.latitude, pos.longitude);
-          locationObtained = true;
-        } catch (e) {
-          // Keep default center if unable to determine device position.
-          print('Location error: $e');
-        }
       }
 
       if (mounted) {
         setState(() {});
       }
 
-      // move the map to the center if controller is ready
+      // move the map to the final center if controller is ready
       try {
         _mapController.move(_center, 15.0);
       } catch (_) {}
-      // fetch address for the current center so UI shows exact place
-      try {
-        await _fetchAddressForCenter();
-      } catch (_) {}
+
+      // fetch final address
+      await _fetchAddressForCenter();
+
       // load countries for city resolution
       _loadCountries();
 
-      // Show feedback if location wasn't obtained
-      if (!locationObtained && mounted) {
+      // Show feedback if location wasn't obtained at all
+      if (!locationObtained &&
+          _center.latitude == -1.9441 &&
+          _center.longitude == 30.0619 &&
+          mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -180,15 +185,23 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
               'lon': lon.toString(),
             },
           );
+      print('🌐 Reverse geocoding: $lat, $lon');
       final res = await http.get(
         uri,
-        headers: {'User-Agent': 'mozzfood/1.0 (contact: support@example.com)'},
+        headers: {
+          'User-Agent': 'MozzFood-Vuba-Mobile-App/1.0',
+          'Accept': 'application/json',
+          'Referer': 'https://delivery.apis.ivas.rw',
+        },
       );
+      print('🌐 Geocode response: ${res.statusCode}');
       if (res.statusCode == 200) {
-        return json.decode(res.body) as Map<String, dynamic>;
+        final data = json.decode(res.body) as Map<String, dynamic>;
+        print('🌐 Geocode data: $data');
+        return data;
       }
     } catch (e) {
-      // ignore errors silently for now
+      print('❌ Geocode error: $e');
     }
     return null;
   }
@@ -214,7 +227,9 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
           .get(
             uri,
             headers: {
-              'User-Agent': 'mozzfood/1.0 (contact: support@example.com)',
+              'User-Agent': 'MozzFood-Vuba-Mobile-App/1.0',
+              'Accept': 'application/json',
+              'Referer': 'https://delivery.apis.ivas.rw',
             },
           )
           .timeout(const Duration(seconds: 8));
@@ -491,61 +506,18 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
         }
       }
 
-      // If not matched, iterate all countries and try to find a city match
-      for (final countryItem in _countries) {
-        final cidRaw =
-            countryItem['id'] ??
-            countryItem['countryId'] ??
-            countryItem['country_id'];
-        int? cid;
-        if (cidRaw is int) cid = cidRaw;
-        if (cidRaw is String) cid = int.tryParse(cidRaw);
-        if (cid == null) continue;
-        if (!_citiesCache.containsKey(cid)) {
-          final resp = await UserApi.getCitiesByCountry(
-            countryId: cid,
-            token: token,
-          );
-          print(
-            '🔍 getCitiesByCountry for countryId=$cid: success=${resp.success}, count=${resp.data?.length ?? 0}',
-          );
-          if (resp.success && resp.data != null) {
-            _citiesCache[cid] = resp.data!;
-          } else {
-            _citiesCache[cid] = [];
-          }
-        }
-        final list = _citiesCache[cid] ?? [];
-        for (final c in list) {
-          final cname =
-              (c['name'] ?? c['cityName'] ?? c['label'] ?? c['title'] ?? '')
-                  .toString()
-                  .toLowerCase();
-          if (cname.isEmpty) continue;
-          for (final cand in candidates) {
-            if (cand.isEmpty) continue;
-            if (cname == cand ||
-                cname.contains(cand) ||
-                cand.contains(cname) ||
-                display.contains(cname) ||
-                display.contains(cand)) {
-              final idRaw = c['id'] ?? c['cityId'] ?? c['city_id'];
-              if (idRaw is int) return idRaw;
-              if (idRaw is String) return int.tryParse(idRaw);
-            }
-          }
-        }
-      }
-
       // Heuristic fallback when backend cities are unavailable or empty.
-      // Map common Rwanda place names to Kigali (cityId=1) so users in
-      // Kigali/Kicukiro/Nyarugenge can create addresses even when
-      // `getCitiesByCountry` fails on the server.
       try {
         final detectedCountryLower =
             detectedCountry?.toString().toLowerCase() ?? '';
-        if ((detectedCountryLower.contains('rwanda') ||
-            detectedCountryLower.contains('rwa'))) {
+        final isRwanda =
+            detectedCountryLower.contains('rwanda') ||
+            detectedCountryLower.contains('rwa');
+        final isMoz =
+            detectedCountryLower.contains('mozambique') ||
+            detectedCountryLower.contains('moz');
+
+        if (isRwanda) {
           for (final cand in candidates) {
             if (cand.contains('kigali') ||
                 cand.contains('kicukiro') ||
@@ -554,16 +526,46 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
               print('🛠️ Heuristic: mapping "$cand" -> Kigali (cityId=1)');
               return 1;
             }
+            if (cand.contains('rwamagana') ||
+                cand.contains('kayonza') ||
+                cand.contains('kibungo')) {
+              print(
+                '🛠️ Heuristic: mapping "$cand" -> Rwamagana/Eastern (cityId=3)',
+              );
+              return 3;
+            }
+            if (cand.contains('musanze') ||
+                cand.contains('ruhengeri') ||
+                cand.contains('gakenke')) {
+              print(
+                '🛠️ Heuristic: mapping "$cand" -> Musanze/Northern (cityId=4)',
+              );
+              return 4;
+            }
+            if (cand.contains('rubavu') ||
+                cand.contains('gisenyi') ||
+                cand.contains('karongi') ||
+                cand.contains('kibuye')) {
+              print(
+                '🛠️ Heuristic: mapping "$cand" -> Rubavu/Western (cityId=5)',
+              );
+              return 5;
+            }
+            if (cand.contains('huy' /* huye */) ||
+                cand.contains('butare') ||
+                cand.contains('nyanza')) {
+              print(
+                '🛠️ Heuristic: mapping "$cand" -> Huye/Southern (cityId=6)',
+              );
+              return 6;
+            }
           }
         }
-        // Heuristic: map common Maputo / Mozambique place names to a default
-        // backend cityId so the client behaves like the Rwanda flow
-        // (which maps Kigali -> cityId=1). We choose `2` as the default
-        // Maputo cityId here; change if your backend uses a different id.
-        if (detectedCountryLower.contains('mozambique') ||
-            detectedCountryLower.contains('moz')) {
+
+        if (isMoz) {
           for (final cand in candidates) {
             if (cand.contains('maputo') ||
+                cand.contains('matola') ||
                 cand.contains('zona sul') ||
                 cand.contains('zona norte') ||
                 cand.contains('zona') ||
@@ -578,14 +580,55 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
         }
       } catch (_) {}
 
-      // If no match but showPickerOnFail is true, present a picker. Prefer
-      // the detected-country cities, but if those are empty use the union
-      // of all fetched cities from `_citiesCache` so the user can still
-      // select a city even when the automatic detection couldn't pick one.
+      // removed extensive fallback loop over ALL countries to prevent UI hang
+
+      // If no match but showPickerOnFail is true, present a picker.
       if (showPickerOnFail && mounted) {
-        final List<Map<String, dynamic>> pickerCities = (cities.isNotEmpty)
-            ? cities
-            : _citiesCache.values.expand((e) => e).toList();
+        print(
+          '🛠️ Fallback: No city matched, trying to populate picker. Countries count: ${_countries.length}',
+        );
+
+        // Try to fetch cities if cache is empty
+        if (_citiesCache.isEmpty) {
+          print('🛠️ Fallback: Cache empty, attempting fetch...');
+          for (final countryItem in _countries) {
+            final cidRaw =
+                countryItem['id'] ??
+                countryItem['countryId'] ??
+                countryItem['country_id'];
+            int? cid;
+            if (cidRaw is int) cid = cidRaw;
+            if (cidRaw is String) cid = int.tryParse(cidRaw);
+            if (cid != null) {
+              final resp = await UserApi.getCitiesByCountry(
+                countryId: cid,
+                token: token,
+              );
+              if (resp.success && resp.data != null) {
+                _citiesCache[cid] = resp.data!;
+              }
+            }
+          }
+        }
+
+        List<Map<String, dynamic>> pickerCities = _citiesCache.values
+            .expand((e) => e)
+            .toList();
+
+        // OFFLINE FALLBACK: If still empty (e.g. 404), use hardcoded list
+        if (pickerCities.isEmpty) {
+          print('🛠️ Fallback: API failed, using hardcoded offline cities.');
+          pickerCities = [
+            {'id': 1, 'name': 'Kigali (Rwanda)'},
+            {'id': 3, 'name': 'Rwamagana (Rwanda)'},
+            {'id': 4, 'name': 'Musanze (Rwanda)'},
+            {'id': 5, 'name': 'Rubavu (Rwanda)'},
+            {'id': 6, 'name': 'Huye (Rwanda)'},
+            {'id': 2, 'name': 'Maputo (Mozambique)'},
+          ];
+        }
+
+        print('🛠️ Picker cities total count: ${pickerCities.length}');
 
         if (pickerCities.isNotEmpty) {
           final picked = await showModalBottomSheet<int?>(
@@ -598,15 +641,15 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                     const Padding(
                       padding: EdgeInsets.all(12.0),
                       child: Text(
-                        'Select City',
+                        'Select City / Province',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    SizedBox(
-                      height: 300,
+                    const Divider(height: 1),
+                    Expanded(
                       child: ListView.builder(
                         itemCount: pickerCities.length,
                         itemBuilder: (context, index) {
@@ -620,6 +663,7 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                                   .toString();
                           return ListTile(
                             title: Text(name),
+                            trailing: const Icon(Icons.chevron_right, size: 16),
                             onTap: () {
                               final idRaw =
                                   city['id'] ??
@@ -664,10 +708,16 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
         : <String, dynamic>{};
 
     final prefs = await SharedPreferences.getInstance();
-    final customerId =
-        prefs.getString('customer_id') ??
-        prefs.getInt('customerId')?.toString() ??
-        '0';
+    final customerIdRaw = prefs.get('customer_id');
+    String customerId = '0';
+    if (customerIdRaw is int) {
+      customerId = customerIdRaw.toString();
+    } else if (customerIdRaw is String) {
+      customerId = customerIdRaw;
+    } else {
+      customerId = prefs.getInt('customerId')?.toString() ?? '0';
+    }
+
     final localPhone =
         prefs.getString('phone') ?? prefs.getString('localContactNumber') ?? '';
 
@@ -890,6 +940,10 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                   initialCenter: _center,
                   initialZoom: 15.0,
                   onPositionChanged: (pos, hasGesture) {
+                    if (pos.center.latitude == _center.latitude &&
+                        pos.center.longitude == _center.longitude) {
+                      return;
+                    }
                     setState(() {
                       _center = pos.center;
                     });
@@ -898,6 +952,13 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
                     _debounce = Timer(const Duration(milliseconds: 700), () {
                       _fetchAddressForCenter();
                     });
+                  },
+                  onTap: (tapPosition, point) {
+                    setState(() {
+                      _center = point;
+                    });
+                    _mapController.move(point, _mapController.camera.zoom);
+                    _fetchAddressForCenter();
                   },
                 ),
                 children: [
