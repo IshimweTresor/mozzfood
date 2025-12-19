@@ -2,7 +2,7 @@
 # Usage: set environment variable API_TOKEN if you have a Bearer token
 
 $baseUrl = $env:BASE_URL
-if (-not $baseUrl) { $baseUrl = 'http://delivery.apis.ivas.rw/' }
+if (-not $baseUrl) { $baseUrl = 'https://delivery.apis.ivas.rw/' }
 $apiToken = $env:API_TOKEN
 
 Write-Host "Starting probe testing for /api/orders/createOrder"

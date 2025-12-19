@@ -17,7 +17,7 @@ class UserApi {
   getCustomerAddresses({required String token, required int customerId}) async {
     try {
       final uri = Uri.parse(
-        'http://delivery.apis.ivas.rw/api/locations/getCustomerAddresses',
+        'https://delivery.apis.ivas.rw/api/locations/getCustomerAddresses',
       ).replace(queryParameters: {'customerId': customerId.toString()});
 
       final response = await http.get(uri, headers: _getHeaders(token: token));
@@ -77,9 +77,9 @@ class UserApi {
   // For Android Emulator, use 10.0.2.2 instead of localhost
   // For real device on same network, use your computer's local IP (e.g., 192.168.x.x)
   // For remote server, use the actual server IP/domain
-  static const String baseUrl = 'http://delivery.apis.ivas.rw/api/auth';
+  static const String baseUrl = 'https://delivery.apis.ivas.rw/api/auth';
   static const String locationBaseUrl =
-      'http://delivery.apis.ivas.rw/api/locations';
+      'https://delivery.apis.ivas.rw/api/locations';
 
   // Alternative: Use this if backend is on your local machine
   // static const String baseUrl = 'http://10.0.2.2:8085/api/auth'; // For Android Emulator
@@ -230,13 +230,13 @@ class UserApi {
       Logger.info('👤 Name: $fullName');
       Logger.info('🌍 Location: $location');
       Logger.info(
-        '🔗 Endpoint: http://delivery.apis.ivas.rw/api/customers/register',
+        '🔗 Endpoint: https://delivery.apis.ivas.rw/api/customers/register',
       );
       Logger.info('🕒 Starting registration POST request...');
       final startTime = DateTime.now();
 
       final response = await http.post(
-        Uri.parse('http://delivery.apis.ivas.rw/api/customers/register'),
+        Uri.parse('https://delivery.apis.ivas.rw/api/customers/register'),
         headers: _getHeaders(),
         body: jsonEncode({
           'fullNames': fullName,
@@ -402,45 +402,79 @@ class UserApi {
     required String password,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/login'),
-        headers: _getHeaders(),
-        body: jsonEncode({'email': email, 'password': password}),
-      );
+      final uri = Uri.parse('$baseUrl/login');
+      Logger.info('🌐 Login API Call: $uri');
 
-      Logger.info('🌐 Raw API Response:');
-      Logger.info('   - Status Code: ${response.statusCode}');
+      final response = await http
+          .post(
+            uri,
+            headers: _getHeaders(),
+            body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      Logger.info('🌐 Login Response:');
+      Logger.info('   - Status: ${response.statusCode}');
       Logger.info('   - Body: ${response.body}');
 
-      if (response.statusCode != 200) {
-        String errorMessage = 'Login failed';
-        Logger.warn('❌ Login failed. Status: ${response.statusCode}');
+      // Treat only 200/201 as success
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Map<String, dynamic> data;
         try {
-          final errorData = jsonDecode(response.body);
-          Logger.error('❌ Error response JSON: $errorData');
-          errorMessage = errorData['message'] ?? errorMessage;
+          data = jsonDecode(response.body) as Map<String, dynamic>;
         } catch (e) {
-          Logger.error('❌ Error response not JSON: ${response.body}');
+          Logger.error('❌ Login response not JSON: ${response.body}');
+          return ApiResponse<LoginResponse>(
+            success: false,
+            message: 'Unexpected server response (not JSON).',
+          );
         }
-        return ApiResponse<LoginResponse>(
-          success: false,
-          message: errorMessage,
-        );
+
+        // Try to parse payload; if shape differs, fail gracefully with message
+        try {
+          final parsed = LoginResponse.fromJson(data);
+          return ApiResponse<LoginResponse>(
+            success: true,
+            message: data['message']?.toString() ?? 'Login successful',
+            data: parsed,
+          );
+        } catch (parseError) {
+          Logger.warn('⚠️ Could not parse LoginResponse: $parseError');
+          Logger.warn('⚠️ Payload: $data');
+          return ApiResponse<LoginResponse>(
+            success: false,
+            message:
+                data['message']?.toString() ??
+                'Login failed: unexpected response format.',
+          );
+        }
       }
 
-      final data = jsonDecode(response.body);
-      Logger.info('✅ Login success. Response JSON: $data');
-      // You may need to update this part based on the actual response structure
-      return ApiResponse<LoginResponse>(
-        success: true,
-        message: data['message'] ?? 'Login successful',
-        data: LoginResponse.fromJson(data),
-      );
-    } catch (e) {
-      Logger.error('❌ API Error: $e', e, null);
+      // Non-success HTTP status
+      String message = 'Login failed (HTTP ${response.statusCode})';
+      try {
+        final err = jsonDecode(response.body);
+        if (err is Map<String, dynamic>) {
+          message = err['message']?.toString() ?? message;
+        }
+      } catch (_) {
+        // Keep default message
+      }
+      Logger.warn('❌ Login failed. Status: ${response.statusCode}');
+      return ApiResponse<LoginResponse>(success: false, message: message);
+    } on FormatException catch (e) {
+      Logger.error('❌ Login JSON format error: $e', e, null);
       return ApiResponse<LoginResponse>(
         success: false,
-        message: 'Network error: Unable to connect to server',
+        message: 'Invalid response format from server.',
+      );
+    } on Exception catch (e) {
+      Logger.error('❌ Login API Error: $e', e, null);
+      return ApiResponse<LoginResponse>(
+        success: false,
+        message: e.toString().contains('Timeout')
+            ? 'Network timeout: server took too long to respond.'
+            : 'Network error: Unable to connect to server',
       );
     }
   }

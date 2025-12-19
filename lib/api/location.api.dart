@@ -6,7 +6,7 @@ import 'package:vuba/models/user.model.dart';
 import '../utils/logger.dart';
 
 class LocationApi {
-  static const String baseUrl = 'http://delivery.apis.ivas.rw/api/locations';
+  static const String baseUrl = 'https://delivery.apis.ivas.rw/api/locations';
 
   static Map<String, String> _getHeaders({String? token}) {
     final headers = {'Content-Type': 'application/json'};

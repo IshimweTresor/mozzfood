@@ -16,7 +16,7 @@ try:
 except Exception:
     requests = None
 
-BASE_URL = os.environ.get('BASE_URL', 'http://delivery.apis.ivas.rw/')
+BASE_URL = os.environ.get('BASE_URL', 'https://delivery.apis.ivas.rw/')
 API_TOKEN = os.environ.get('API_TOKEN', '')
 
 HEADERS = {

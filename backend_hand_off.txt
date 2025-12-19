@@ -5,7 +5,7 @@ Send this exact message to the backend team to diagnose the createOrder HTTP 500
 Hi — the mobile client (mozzfood Flutter app) is getting HTTP 500 from POST /api/orders/createOrder. Please check server logs and confirm the expected JSON schema. Below are the exact request, headers and server response we observed; please look up server logs around the timestamp and share the stack trace or validation error.
 
 1) Request (endpoint)
-POST http://delivery.apis.ivas.rw/api/orders/createOrder
+POST https://delivery.apis.ivas.rw/api/orders/createOrder
 
 2) Request headers (use these; replace token)
 Content-Type: application/json
@@ -56,7 +56,7 @@ We added a `callback` field to the MoMo request. Example swagger payload (client
   "amount": 9,
   "payerMessageTitle": "string",
   "payerMessageDescription": "string",
-  "callback": "http://delivery.apis.ivas.rw/api/v1/payments/momo/webhook"
+  "callback": "https://delivery.apis.ivas.rw/api/v1/payments/momo/webhook"
 }
 Please confirm your webhook path and whether you expect `callback` in the Momo request body.
 
