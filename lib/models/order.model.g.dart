@@ -10,8 +10,8 @@ Order _$OrderFromJson(Map<String, dynamic> json) => Order(
   orderId: (json['orderId'] as num?)?.toInt(),
   orderNumber: json['orderNumber'] as String?,
   orderStatus: json['orderStatus'] as String?,
-  deliveryAddress: json['deliveryAddress'] as String?,
-  contactNumber: json['contactNumber'] as String?,
+  deliveryAddress: _safeStringFromJson(json['deliveryAddress']),
+  contactNumber: json['phoneNumber'] as String?,
   specialInstructions: json['specialInstructions'] as String?,
   subTotal: (json['subTotal'] as num?)?.toDouble(),
   deliveryFee: (json['deliveryFee'] as num?)?.toDouble(),
@@ -27,7 +27,7 @@ Order _$OrderFromJson(Map<String, dynamic> json) => Order(
   cancelledAt: json['cancelledAt'] as String?,
   createdAt: json['createdAt'] as String?,
   updatedAt: json['updatedAt'] as String?,
-  estimatedDeliveryTime: json['estimatedDeliveryTime'] as String?,
+  estimatedDeliveryTime: _safeStringFromJson(json['estimatedDeliveryTime']),
   currentStatus: json['currentStatus'] as String?,
   statusHistory: (json['statusHistory'] as List<dynamic>?)
       ?.map((e) => OrderStatusHistory.fromJson(e as Map<String, dynamic>))
@@ -51,7 +51,7 @@ Map<String, dynamic> _$OrderToJson(Order instance) => <String, dynamic>{
   'orderNumber': instance.orderNumber,
   'orderStatus': instance.orderStatus,
   'deliveryAddress': instance.deliveryAddress,
-  'contactNumber': instance.contactNumber,
+  'phoneNumber': instance.contactNumber,
   'specialInstructions': instance.specialInstructions,
   'subTotal': instance.subTotal,
   'deliveryFee': instance.deliveryFee,
@@ -96,25 +96,25 @@ Map<String, dynamic> _$OrderStatusHistoryToJson(OrderStatusHistory instance) =>
     };
 
 OrderItem _$OrderItemFromJson(Map<String, dynamic> json) => OrderItem(
-  itemId: (json['itemId'] as num).toInt(),
+  itemId: (json['orderItemId'] as num).toInt(),
   menuItemId: (json['menuItemId'] as num).toInt(),
-  itemName: json['itemName'] as String,
+  itemName: json['menuItemName'] as String,
   quantity: (json['quantity'] as num).toInt(),
   unitPrice: (json['unitPrice'] as num).toDouble(),
   totalPrice: (json['totalPrice'] as num).toDouble(),
-  specialInstructions: json['specialInstructions'] as String?,
+  specialInstructions: json['specialRequests'] as String?,
   variantIds: (json['variantIds'] as List<dynamic>?)
       ?.map((e) => (e as num).toInt())
       .toList(),
 );
 
 Map<String, dynamic> _$OrderItemToJson(OrderItem instance) => <String, dynamic>{
-  'itemId': instance.itemId,
+  'orderItemId': instance.itemId,
   'menuItemId': instance.menuItemId,
-  'itemName': instance.itemName,
+  'menuItemName': instance.itemName,
   'quantity': instance.quantity,
   'unitPrice': instance.unitPrice,
   'totalPrice': instance.totalPrice,
-  'specialInstructions': instance.specialInstructions,
+  'specialRequests': instance.specialInstructions,
   'variantIds': instance.variantIds,
 };

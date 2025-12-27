@@ -254,7 +254,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        Navigator.popAndPushNamed(context, '/home');
+                        Navigator.popAndPushNamed(context, '/store-front');
                       },
                       child: Container(
                         padding: const EdgeInsets.all(8),

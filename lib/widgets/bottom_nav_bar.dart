@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/cartproviders.dart';
+import '../utils/colors.dart';
 
 /// Reusable bottom navigation bar used across screens.
 /// Callers should place a bottom spacer (height: kBottomNavigationBarHeight)
@@ -13,42 +17,53 @@ class BottomNavBar extends StatelessWidget {
     IconData icon,
     String label,
     bool isSelected, {
-    bool hasNotification = false,
+    int badgeCount = 0,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
-                color: isSelected ? Colors.green : Colors.grey,
+                color: isSelected ? AppColors.primary : Colors.grey,
                 size: 24,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.green : Colors.grey,
+                  color: isSelected ? AppColors.primary : Colors.grey,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],
           ),
-          if (hasNotification)
-            const Positioned(
-              right: 0,
-              top: 0,
-              child: CircleAvatar(
-                radius: 8,
-                backgroundColor: Colors.red,
+          if (badgeCount > 0)
+            Positioned(
+              right: -6,
+              top: -4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                 child: Text(
-                  '1',
-                  style: TextStyle(fontSize: 10, color: Colors.white),
+                  '$badgeCount',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
@@ -59,53 +74,86 @@ class BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFF2A2A2A),
-        border: Border(top: BorderSide(color: Color(0xFF3A3A3A), width: 1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(
-            context,
-            Icons.store,
-            'Store Front',
-            selectedIndex == 0,
-            onTap: () => Navigator.popAndPushNamed(context, '/home'),
+    return Consumer<CartProvider>(
+      builder: (context, cart, child) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(
+              top: BorderSide(color: Colors.white.withOpacity(0.05), width: 1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
-          _navItem(
-            context,
-            Icons.local_offer,
-            'Prime',
-            selectedIndex == 1,
-            onTap: () => Navigator.pushNamed(context, '/prime'),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _navItem(
+                context,
+                Icons.store,
+                'Store Front',
+                selectedIndex == 0,
+                onTap: () {
+                  if (selectedIndex != 0) {
+                    Navigator.pushReplacementNamed(context, '/home');
+                  }
+                },
+              ),
+              _navItem(
+                context,
+                Icons.local_offer,
+                'Prime',
+                selectedIndex == 1,
+                onTap: () {
+                  if (selectedIndex != 1) {
+                    Navigator.pushNamed(context, '/prime');
+                  }
+                },
+              ),
+              _navItem(
+                context,
+                Icons.receipt_long,
+                'Orders',
+                selectedIndex == 2,
+                onTap: () {
+                  if (selectedIndex != 2) {
+                    Navigator.pushNamed(context, '/orders');
+                  }
+                },
+              ),
+              _navItem(
+                context,
+                Icons.shopping_cart,
+                'Cart',
+                selectedIndex == 3,
+                badgeCount: cart.totalItems,
+                onTap: () {
+                  if (selectedIndex != 3) {
+                    Navigator.pushNamed(context, '/cart');
+                  }
+                },
+              ),
+              _navItem(
+                context,
+                Icons.more_horiz,
+                'More',
+                selectedIndex == 4,
+                onTap: () {
+                  if (selectedIndex != 4) {
+                    Navigator.pushNamed(context, '/more-options');
+                  }
+                },
+              ),
+            ],
           ),
-          _navItem(
-            context,
-            Icons.receipt_long,
-            'Orders',
-            selectedIndex == 2,
-            onTap: () => Navigator.pushNamed(context, '/orders'),
-          ),
-          _navItem(
-            context,
-            Icons.shopping_cart,
-            'Cart',
-            selectedIndex == 3,
-            hasNotification: true,
-            onTap: () => Navigator.pushNamed(context, '/cart'),
-          ),
-          _navItem(
-            context,
-            Icons.more_horiz,
-            'More',
-            selectedIndex == 4,
-            onTap: () => Navigator.pushNamed(context, '/more'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

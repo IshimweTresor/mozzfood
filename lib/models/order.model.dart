@@ -2,12 +2,39 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'order.model.g.dart';
 
+// Helper function to safely convert dynamic values to String
+String? _safeStringFromJson(dynamic value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  if (value is Map) {
+    // If it's a map, try to extract a meaningful string value
+    // Common patterns: {address: "..."}, {street: "...", city: "..."}
+    if (value.containsKey('address')) return value['address']?.toString();
+    if (value.containsKey('street')) {
+      final parts = [
+        value['street'],
+        value['city'],
+        value['state'],
+        value['country'],
+      ].where((e) => e != null).join(', ');
+      return parts.isNotEmpty ? parts : null;
+    }
+    // Fallback: return JSON string representation
+    return value.toString();
+  }
+  return value.toString();
+}
+
 @JsonSerializable(explicitToJson: true)
 class Order {
   final int? orderId;
   final String? orderNumber;
   final String? orderStatus;
+
+  @JsonKey(fromJson: _safeStringFromJson)
   final String? deliveryAddress;
+
+  @JsonKey(name: 'phoneNumber')
   final String? contactNumber;
   final String? specialInstructions;
   final double? subTotal;
@@ -24,6 +51,8 @@ class Order {
   final String? cancelledAt;
   final String? createdAt;
   final String? updatedAt;
+
+  @JsonKey(fromJson: _safeStringFromJson)
   final String? estimatedDeliveryTime;
 
   // Tracking-specific fields
@@ -93,16 +122,17 @@ class OrderStatusHistory {
   Map<String, dynamic> toJson() => _$OrderStatusHistoryToJson(this);
 }
 
-
-
 @JsonSerializable(explicitToJson: true)
 class OrderItem {
+  @JsonKey(name: 'orderItemId')
   final int itemId;
   final int menuItemId;
+  @JsonKey(name: 'menuItemName')
   final String itemName;
   final int quantity;
   final double unitPrice;
   final double totalPrice;
+  @JsonKey(name: 'specialRequests')
   final String? specialInstructions;
   final List<int>? variantIds;
 

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import '../utils/colors.dart';
-import '../models/vendor.model.dart';
-import '../models/menuItem.model.dart' hide Vendor;
-import '../api/menuItem.api.dart';
 import 'package:provider/provider.dart';
+
+import '../api/menuItem.api.dart';
+import '../models/menuItem.model.dart' hide Vendor;
+import '../models/vendor.model.dart';
 import '../providers/cartproviders.dart';
+import '../utils/colors.dart';
 import '../widgets/safe_network_image.dart';
 
 class StoreDetailPage extends StatefulWidget {
@@ -41,183 +42,316 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.onBackground),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          widget.vendor.restaurantName ?? '',
-          style: const TextStyle(
-            color: AppColors.onBackground,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.info_outline,
-              color: AppColors.textSecondary,
-            ),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.search, color: AppColors.textSecondary),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Stack(
         children: [
-          // Green open banner
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.green[700],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Icon(Icons.check, color: Colors.white),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'We are Open 24/7!',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+          FutureBuilder<List<MenuItem>>(
+            future: _menuItemsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                );
+              }
+              if (snapshot.hasError) {
+                return const Center(child: Text('Failed to load menu items'));
+              }
+              final allItems = snapshot.data ?? [];
+
+              // Group items by category
+              final Map<String, List<MenuItem>> groupedItems = {};
+              for (var item in allItems) {
+                final category = item.categoryName.isEmpty
+                    ? 'Menu'
+                    : item.categoryName;
+                groupedItems.putIfAbsent(category, () => []).add(item);
+              }
+
+              return CustomScrollView(
+                slivers: [
+                  // Premium Header with Image
+                  SliverAppBar(
+                    expandedHeight: 200,
+                    pinned: true,
+                    backgroundColor: AppColors.background,
+                    elevation: 0,
+                    leading: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: CircleAvatar(
+                        backgroundColor: Colors.white.withOpacity(0.8),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.black,
+                          ),
+                          onPressed: () => Navigator.pop(context),
                         ),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Great news, Kigali! Vuba Vuba is now open 24/7, from Thursday to Sunday. From Monday to Wednesday, we stay open late until 1:00 AM. Order anytime, day or night',
-                        style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                    flexibleSpace: FlexibleSpaceBar(
+                      background: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Container(
+                            color: AppColors.primary.withOpacity(0.1),
+                            child: const Icon(
+                              Icons.store,
+                              size: 64,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withOpacity(0.4),
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.6),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: CircleAvatar(
+                          backgroundColor: Colors.white.withOpacity(0.8),
+                          child: IconButton(
+                            icon: const Icon(Icons.search, color: Colors.black),
+                            onPressed: () {},
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          // Store info
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.vendor.restaurantName ?? '',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: AppColors.onBackground,
-                  ),
-                ),
-                if (widget.vendor.location != null)
-                  Text(
-                    widget.vendor.location!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                if (widget.vendor.description != null)
-                  Text(
-                    widget.vendor.description!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
+
+                  // Store Information Section
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  widget.vendor.restaurantName ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 24,
+                                    color: AppColors.onBackground,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star,
+                                      color: AppColors.primary,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '4.5', // Mock rating
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${widget.vendor.location ?? "Kigali"} • 20-30 min',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                  ),
+
+                  // Green open banner
+                  SliverToBoxAdapter(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: widget.vendor.active == true
-                            ? Colors.green
-                            : Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        widget.vendor.active == true ? 'OPEN' : 'CLOSED',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.green.withOpacity(0.2),
                         ),
                       ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.info_outline,
+                            color: Colors.green,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Open 24/7! Late night delivery available until 1:00 AM.',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+
+                  // Menu Categories and Items
+                  ...groupedItems.entries.expand((entry) {
+                    return [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                          child: Text(
+                            entry.key,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.onBackground,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final item = entry.value[index];
+                          return _ProductListItem(
+                            item: item,
+                            storeName: widget.vendor.restaurantName ?? '',
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (context) {
+                                  return ProductDetailSheet(
+                                    menuItem: item,
+                                    storeName:
+                                        widget.vendor.restaurantName ?? '',
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        }, childCount: entry.value.length),
+                      ),
+                    ];
+                  }).toList(),
+
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 100),
+                  ), // Extra space for floating cart
+                ],
+              );
+            },
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              "Vendor Menu",
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-          Expanded(
-            child: FutureBuilder<List<MenuItem>>(
-              future: _menuItemsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Failed to load menu items'));
-                }
-                final items = snapshot.data ?? [];
-                if (items.isEmpty) {
-                  return const Center(child: Text('No menu items found'));
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return _ProductListItem(
-                      name: item.name,
-                      price: 'RWF ${item.price}',
-                      description: item.description,
-                      image: item.imageUrl,
-                      // Inside your ListView.builder in StoreDetailPage:
-                      onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) {
-                            return ProductDetailSheet(
-                              menuItem: item, // Pass the MenuItem object
-                              storeName: widget.vendor.restaurantName ?? '',
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
+
+          // Floating Cart Bar
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Consumer<CartProvider>(
+              builder: (context, cart, child) {
+                if (cart.items.isEmpty) return const SizedBox.shrink();
+
+                return Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: () => Navigator.pushNamed(context, '/cart'),
+                    child: Container(
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '${cart.totalItems}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'View Cart',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'RWF ${cart.totalPrice.toInt()}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
@@ -229,63 +363,129 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
 }
 
 class _ProductListItem extends StatelessWidget {
-  final String name;
-  final String price;
-  final String description;
-  final String? image;
-  final VoidCallback? onTap;
+  final MenuItem item;
+  final String storeName;
+  final VoidCallback onTap;
+
   const _ProductListItem({
-    required this.name,
-    required this.price,
-    required this.description,
-    this.image,
-    this.onTap,
+    required this.item,
+    required this.storeName,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      color: AppColors.surface,
-      child: ListTile(
-        leading: (image == null || image!.isEmpty)
-            ? const Icon(Icons.shopping_bag, color: AppColors.primary)
-            : SafeNetworkImage(
-                url: image,
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-              ),
-        title: Text(
-          name,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppColors.onBackground,
-          ),
-        ),
-        subtitle: Column(
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (description.isNotEmpty)
-              Text(
-                description,
-                style: const TextStyle(color: AppColors.textSecondary),
+            // Details on the left
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppColors.onBackground,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  if (item.description.isNotEmpty)
+                    Text(
+                      item.description,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        'RWF ${item.price.toInt()}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.onBackground,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            if (price.isNotEmpty)
-              Text(
-                price,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.onBackground,
+            ),
+            const SizedBox(width: 16),
+            // Image on the right
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: item.imageUrl.isEmpty
+                      ? Container(
+                          width: 110,
+                          height: 110,
+                          color: AppColors.primary.withOpacity(0.05),
+                          child: const Icon(
+                            Icons.fastfood,
+                            color: AppColors.primary,
+                            size: 40,
+                          ),
+                        )
+                      : SafeNetworkImage(
+                          url: item.imageUrl,
+                          width: 110,
+                          height: 110,
+                          fit: BoxFit.cover,
+                        ),
                 ),
-              ),
+                // Quick Add Button
+                Positioned(
+                  bottom: -8,
+                  left: 20,
+                  right: 20,
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        foregroundColor: AppColors.primary,
+                      ),
+                      onPressed: onTap,
+                      child: const Text(
+                        'ADD',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.textSecondary,
-        ),
-        onTap: onTap,
       ),
     );
   }
@@ -493,17 +693,21 @@ class _ProductDetailSheetState extends State<ProductDetailSheet> {
                       // Close the bottom sheet first
                       Navigator.of(context).pop();
 
-                      // Show a brief success SnackBar then navigate to the Cart page
-                      // Use a post frame callback to ensure the sheet is fully popped
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Product added to cart'),
-                            behavior: SnackBarBehavior.floating,
+                      // Show a brief success SnackBar
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${widget.menuItem.name} added to cart',
                           ),
-                        );
-                        Navigator.pushNamed(context, '/cart');
-                      });
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                          action: SnackBarAction(
+                            label: 'VIEW CART',
+                            onPressed: () =>
+                                Navigator.pushNamed(context, '/cart'),
+                          ),
+                        ),
+                      );
                     },
                     label: const Text(
                       'Add to cart',

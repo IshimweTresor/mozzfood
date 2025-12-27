@@ -2,7 +2,7 @@ class ApiResponse<T> {
   final bool success;
   final String message;
   final T? data;
-  final String? error;
+  final dynamic error;
   final String? referenceId; // 👈 add this
 
   ApiResponse({
@@ -20,10 +20,9 @@ class ApiResponse<T> {
     return ApiResponse<T>(
       success: json['success'] ?? false,
       message: json['message'] ?? '',
-      data:
-          json['order'] != null
-              ? create(json['order'])
-              : null, // backend uses 'order'
+      data: json['order'] != null
+          ? create(json['order'])
+          : null, // backend uses 'order'
       error: json['error'],
       referenceId: json['referenceId'], // 👈 parse here
     );

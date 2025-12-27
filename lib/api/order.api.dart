@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:core';
+
 import 'package:http/http.dart' as http;
 import 'package:vuba/models/order.model.dart';
 import 'package:vuba/models/payment.model.dart';
 import 'package:vuba/response/api_response.dart';
+
 import '../utils/logger.dart';
 
 class OrderApi {
@@ -310,7 +312,6 @@ class OrderApi {
       }
 
       Logger.info('📡 Response status: ${response.statusCode}');
-      Logger.info('📡 Response headers: ${response.headers}');
       Logger.info('📡 Response body: ${response.body}');
 
       if (response.statusCode == 201 || response.statusCode == 200) {
@@ -352,7 +353,8 @@ class OrderApi {
           Logger.warn('⚠️ Warning: Could not parse order JSON: $e');
           return ApiResponse<Order>(
             success: false,
-            message: 'Order created but response parsing failed',
+            message:
+                'Order created but response parsing failed: ${e.toString()}',
             error: data,
           );
         }
@@ -486,7 +488,7 @@ class OrderApi {
         return ApiResponse<Order>(
           success: false,
           message: errorMessage,
-          error: data,
+          error: data ?? response.body, // Catch both structured and raw
         );
       } catch (parseError) {
         return ApiResponse<Order>(

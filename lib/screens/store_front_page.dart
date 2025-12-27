@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../utils/colors.dart';
+
 import '../api/vendor.api.dart';
 import '../models/vendor.model.dart';
+import '../utils/colors.dart';
+import '../widgets/bottom_nav_bar.dart';
 import 'store_detail_page.dart';
 
 class StoreFrontPage extends StatefulWidget {
@@ -16,22 +18,65 @@ class StoreFrontPage extends StatefulWidget {
 }
 
 class _StoreFrontPageState extends State<StoreFrontPage> {
-  late Future<List<Vendor>> _vendorsFuture;
+  final TextEditingController _searchController = TextEditingController();
+  List<Vendor> _allVendors = [];
+  List<Vendor> _filteredVendors = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _vendorsFuture = _fetchVendors();
+    _fetchVendors();
   }
 
-  Future<List<Vendor>> _fetchVendors() async {
-    final response = await VendorApi.getAllVendors();
-    print('Fetched vendors: ${response.data}');
-    if (response.success && response.data != null) {
-      print('Vendors type: ${response.data.runtimeType}');
-      return response.data!;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchVendors() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final response = await VendorApi.getAllVendors();
+      if (response.success && response.data != null) {
+        setState(() {
+          _allVendors = response.data!;
+          _filteredVendors = _allVendors;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = response.message ?? 'Failed to load vendors';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'An error occurred: $e';
+        _isLoading = false;
+      });
     }
-    return [];
+  }
+
+  void _filterVendors(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredVendors = _allVendors;
+      } else {
+        _filteredVendors = _allVendors.where((vendor) {
+          final name = (vendor.restaurantName ?? '').toLowerCase();
+          final cuisine = (vendor.cuisineType ?? '').toLowerCase();
+          final searchLower = query.toLowerCase();
+          return name.contains(searchLower) || cuisine.contains(searchLower);
+        }).toList();
+      }
+    });
   }
 
   @override
@@ -39,240 +84,294 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Back button (placed above page content)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8.0,
-                vertical: 6.0,
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: AppColors.onBackground,
-                    ),
-                    onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                        return;
-                      }
-                      // If there's nowhere to pop to, navigate to the location
-                      // selection page so the user can pick a different location.
-                      Navigator.pushReplacementNamed(
-                        context,
-                        '/location-selection',
-                      );
-                    },
-                    tooltip: 'Back',
-                  ),
-                ],
-              ),
-            ),
-            // Test button
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/test-restaurants');
-                },
-                child: const Text('Test Restaurant API'),
-              ),
-            ),
-
-            // Top bar with selected location
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Deliver to:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                widget.selectedLocationName,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.onBackground,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.keyboard_arrow_down,
-                              color: AppColors.textSecondary,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Rwanda flag icon (mocked)
-                  Container(
-                    width: 32,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 12,
-                          color: AppColors.ukraineBlue,
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          child: Container(
-                            width: 32,
-                            height: 12,
-                            color: AppColors.ukraineYellow,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Green open banner
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green[700],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.check, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'We are Open 24/7!',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Great news, Kigali! Vuba Vuba is now open 24/7, from Thursday to Sunday. From Monday to Wednesday, we stay open late until 1:00 AM. Order anytime, day or night',
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(8),
+        child: CustomScrollView(
+          slivers: [
+            // Back button
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8.0,
+                  vertical: 6.0,
                 ),
                 child: Row(
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(Icons.search, color: AppColors.textSecondary),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: AppColors.onBackground,
+                      ),
+                      onPressed: () {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                          return;
+                        }
+                        Navigator.pushReplacementNamed(
+                          context,
+                          '/location-selection',
+                        );
+                      },
+                      tooltip: 'Back',
                     ),
+                  ],
+                ),
+              ),
+            ),
+            // Top bar with selected location
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
                     Expanded(
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          hintText: 'Search for Breakfast',
-                          border: InputBorder.none,
-                          hintStyle: TextStyle(color: AppColors.textSecondary),
-                        ),
-                        style: const TextStyle(color: AppColors.onBackground),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Deliver to:',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  widget.selectedLocationName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.onBackground,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.keyboard_arrow_down,
+                                color: AppColors.textSecondary,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Rwanda flag icon (mocked)
+                    Container(
+                      width: 32,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 12,
+                            color: AppColors.ukraineBlue,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            child: Container(
+                              width: 32,
+                              height: 12,
+                              color: AppColors.ukraineYellow,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-
+            // Green open banner
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green[700],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.check, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'We are Open 24/7!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Great news, Kigali! Vuba Vuba is now open 24/7, from Thursday to Sunday. From Monday to Wednesday, we stay open late until 1:00 AM. Order anytime, day or night',
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Search bar
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Icon(
+                          Icons.search,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: _filterVendors,
+                          decoration: InputDecoration(
+                            hintText: 'Search for restaurants or cuisine',
+                            border: InputBorder.none,
+                            hintStyle: const TextStyle(
+                              color: AppColors.textSecondary,
+                            ),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 20),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _filterVendors('');
+                                    },
+                                  )
+                                : null,
+                          ),
+                          style: const TextStyle(color: AppColors.onBackground),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             // Section title
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                'All Vuba Breakfast',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.onBackground,
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  _searchController.text.isEmpty
+                      ? 'All Vuba Breakfast'
+                      : 'Search Results',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.onBackground,
+                  ),
                 ),
               ),
             ),
 
-            // Store grid (from API)
-            Expanded(
-              child: FutureBuilder<List<Vendor>>(
-                future: _vendorsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
+            // Store grid
+            Builder(
+              builder: (context) {
+                if (_isLoading) {
+                  return const SliverFillRemaining(
+                    child: Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
                       ),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    return const Center(child: Text('Failed to load vendors'));
-                  }
-                  final vendors = snapshot.data ?? [];
-                  if (vendors.isEmpty) {
-                    return const Center(child: Text('No vendors found'));
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: GridView.builder(
-                      itemCount: vendors.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
-                            childAspectRatio: 1.1,
-                          ),
-                      itemBuilder: (context, index) {
-                        final vendor = vendors[index];
-                        return StoreCard(vendor: vendor);
-                      },
                     ),
                   );
-                },
-              ),
+                }
+
+                if (_errorMessage != null) {
+                  return SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_errorMessage!),
+                          TextButton(
+                            onPressed: _fetchVendors,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                if (_filteredVendors.isEmpty) {
+                  return SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.search_off,
+                            size: 64,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No restaurants found for "${_searchController.text}"',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                return SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          childAspectRatio: 1.0,
+                        ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      return StoreCard(vendor: _filteredVendors[index]);
+                    }, childCount: _filteredVendors.length),
+                  ),
+                );
+              },
             ),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
           ],
         ),
       ),
+      bottomNavigationBar: const BottomNavBar(selectedIndex: 0),
     );
   }
 }
@@ -436,37 +535,6 @@ class StoreCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// Small reusable widgets used in the slivers above
-class _TestButton extends StatelessWidget {
-  const _TestButton({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () {
-        Navigator.pushNamed(context, '/test-restaurants');
-      },
-      child: const Text('Test Restaurant API'),
-    );
-  }
-}
-
-class _SearchField extends StatelessWidget {
-  const _SearchField({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      decoration: const InputDecoration(
-        hintText: 'Search for Breakfast',
-        border: InputBorder.none,
-        hintStyle: TextStyle(color: AppColors.textSecondary),
-      ),
-      style: const TextStyle(color: AppColors.onBackground),
     );
   }
 }
