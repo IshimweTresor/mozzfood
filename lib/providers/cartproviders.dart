@@ -1,6 +1,8 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/menuItem.model.dart';
 
 class CartProvider extends ChangeNotifier {
@@ -68,16 +70,11 @@ class CartProvider extends ChangeNotifier {
     String? specialInstructions,
     List<int>? variantIds,
   }) {
-    // If cart has items from a different restaurant, clear cart
-    if (_items.isNotEmpty && _currentRestaurantId != item.restaurantId) {
-      _items.clear();
-      _currentRestaurantId = item.restaurantId;
-      _currentRestaurantName = null;
-    }
-
-    // If this is the first item, set the restaurant info
+    // Allow multi-restaurant carts - no longer clear cart when adding from different restaurant
+    // If this is the first item, set the restaurant info for backward compatibility
     if (_items.isEmpty) {
       _currentRestaurantId = item.restaurantId;
+      _currentRestaurantName = null;
     }
 
     final index = _items.indexWhere(
@@ -179,6 +176,32 @@ class CartProvider extends ChangeNotifier {
       if (a[i] != b[i]) return false;
     }
     return true;
+  }
+
+  /// Get all unique restaurant IDs in the cart
+  List<int> get restaurantIds {
+    final ids = <int>{};
+    for (var item in _items) {
+      ids.add(item.item.restaurantId);
+    }
+    return ids.toList();
+  }
+
+  /// Get items grouped by restaurant ID
+  Map<int, List<CartItem>> get itemsByRestaurant {
+    final Map<int, List<CartItem>> grouped = {};
+    for (var item in _items) {
+      final restaurantId = item.item.restaurantId;
+      grouped.putIfAbsent(restaurantId, () => []).add(item);
+    }
+    return grouped;
+  }
+
+  /// Get restaurant name for a given restaurant ID
+  /// Note: MenuItem doesn't store restaurant name, so this returns null
+  /// Restaurant names should be fetched separately or stored in cart metadata
+  String? getRestaurantName(int restaurantId) {
+    return null;
   }
 }
 

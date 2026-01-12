@@ -4,18 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../api/order.api.dart';
 import '../api/location.api.dart';
-import '../utils/logger.dart';
+import '../api/order.api.dart';
 import '../models/order.model.dart';
 import '../models/user.model.dart';
 import '../providers/cartproviders.dart';
-import 'address_book_page.dart';
-import 'payment_method_page.dart';
+import '../utils/logger.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/safe_network_image.dart';
-import 'waiting_for_payment_page.dart';
+import 'address_book_page.dart';
 import 'mobile_wallet_numbers_page.dart';
+import 'payment_method_page.dart';
+import 'waiting_for_payment_page.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final String paymentMethod;
@@ -61,59 +61,61 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
       if (token == null) throw Exception('Authentication token missing.');
       if (customerId == null) throw Exception('Customer ID is missing.');
-      if (cartProvider.currentRestaurantId == null) {
-        throw Exception('Restaurant ID is missing.');
-      }
 
       // Map payment method
       String paymentMethodCode = _mapPaymentMethod(widget.paymentMethod);
 
-      // Map cart items to OrderItem
-      List<OrderItem> orderItems = cartItems.map((cartItem) {
-        final id = cartItem.item.id;
-        int menuItemId = 0;
-        if (id is int) {
-          menuItemId = id;
-        } else if (id is String) {
-          menuItemId = int.tryParse(id) ?? 0;
-        }
+      // Group cart items by restaurant
+      final itemsByRestaurant = cartProvider.itemsByRestaurant;
 
-        // ✅ Ensure we have valid prices
-        double unitPrice = (cartItem.item.price ?? 0.0).toDouble();
-        double totalPrice = unitPrice * cartItem.quantity;
+      if (itemsByRestaurant.isEmpty) {
+        throw Exception('Cart is empty.');
+      }
 
-        return OrderItem(
-          itemId: menuItemId,
-          menuItemId: menuItemId,
-          itemName: cartItem.item.name ?? 'Unknown Item',
-          quantity: cartItem.quantity,
-          unitPrice: unitPrice,
-          totalPrice: totalPrice,
-          specialInstructions: cartItem.specialInstructions?.isNotEmpty == true
-              ? cartItem.specialInstructions
-              : null,
-          variantIds: cartItem.selectedVariantIds.isNotEmpty
-              ? cartItem.selectedVariantIds
-              : null,
-        );
-      }).toList();
-
-      // ✅ Add validation before API call
       Logger.info('🔍 Validating order data...');
-      Logger.info('📦 Restaurant ID: ${cartProvider.currentRestaurantId}');
       Logger.info('👤 Customer ID: $customerId');
       Logger.info(
         '📍 Delivery Address ID: ${widget.selectedLocation?.id ?? '1'}',
       );
-      Logger.info('🛒 Order Items: ${orderItems.length}');
-      for (var item in orderItems) {
-        Logger.info(
-          '  - Item ${item.menuItemId}: ${item.itemName} x${item.quantity} = ${item.totalPrice}',
-        );
+      Logger.info('🏪 Restaurants: ${itemsByRestaurant.length}');
+
+      // Convert grouped items to Map<int, List<OrderItem>>
+      final Map<int, List<OrderItem>> restaurantOrders = {};
+
+      for (var entry in itemsByRestaurant.entries) {
+        final restaurantId = entry.key;
+        final cartItems = entry.value;
+
+        Logger.info('  - Restaurant $restaurantId: ${cartItems.length} items');
+
+        final orderItems = cartItems.map((cartItem) {
+          final id = cartItem.item.id;
+          int menuItemId = id;
+
+          double unitPrice = cartItem.item.price.toDouble();
+          double totalPrice = unitPrice * cartItem.quantity;
+
+          return OrderItem(
+            itemId: menuItemId,
+            menuItemId: menuItemId,
+            itemName: cartItem.item.name,
+            quantity: cartItem.quantity,
+            unitPrice: unitPrice,
+            totalPrice: totalPrice,
+            specialInstructions:
+                cartItem.specialInstructions?.isNotEmpty == true
+                ? cartItem.specialInstructions
+                : null,
+            variantIds: cartItem.selectedVariantIds.isNotEmpty
+                ? cartItem.selectedVariantIds
+                : null,
+          );
+        }).toList();
+
+        restaurantOrders[restaurantId] = orderItems;
       }
 
-      // Determine delivery address: prefer the selected location; if none
-      // was provided, fetch saved customer addresses and use default (or first).
+      // Determine delivery address
       SavedLocation? chosenLocation = widget.selectedLocation;
       if (chosenLocation == null) {
         try {
@@ -124,7 +126,6 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
           if (addrResp.success && addrResp.data != null) {
             final list = addrResp.data!.addresses;
             if (list.isNotEmpty) {
-              // pick default if present, otherwise first
               final defaultAddr = list.firstWhere(
                 (a) => a.isDefault == true,
                 orElse: () => list.first,
@@ -151,17 +152,17 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         deliveryAddressId = 1;
       }
 
-      // Call API to create order
+      // Call API to create multi-restaurant order
       final orderResponse = await OrderApi.createOrder(
         token: token,
         customerId: int.parse(customerId),
-        restaurantId: cartProvider.currentRestaurantId!,
-        deliveryAddressId: deliveryAddressId
-            .toString(), // Backend expects String
+        restaurantId:
+            itemsByRestaurant.keys.first, // Fallback for backward compatibility
+        deliveryAddressId: deliveryAddressId.toString(),
         contactNumber: widget.selectedNumber.isNotEmpty
             ? widget.selectedNumber
             : '0000000000',
-        orderItems: orderItems,
+        orderItems: [], // Empty for multi-restaurant orders
         deliveryAddress:
             chosenLocation?.address ??
             widget.selectedLocation?.address ??
@@ -174,10 +175,16 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         specialInstructions: _instructionsController.text.trim().isNotEmpty
             ? _instructionsController.text.trim()
             : null,
+        restaurantOrders: restaurantOrders, // Multi-restaurant support
       );
 
+      print('🔍 DEBUG: Checking order response...');
+      print('🔍 DEBUG: orderResponse.success = ${orderResponse.success}');
+      print('🔍 DEBUG: orderResponse.data = ${orderResponse.data}');
+      print('🔍 DEBUG: orderResponse.message = ${orderResponse.message}');
+
       if (!orderResponse.success || orderResponse.data == null) {
-        // Show detailed error dialog so developer / backend team can inspect
+        print('❌ DEBUG: Order creation failed!');
         if (mounted) {
           final details = orderResponse.error ?? orderResponse.message;
           await showDialog<void>(
@@ -197,26 +204,75 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         return;
       }
 
+      print('✅ DEBUG: Order created successfully, processing payment...');
+      print('🔍 DEBUG: mounted = $mounted');
+
       // On success: handle payment flows (MoMo requires initiating request)
       if (mounted) {
+        print('🔍 DEBUG: Inside mounted block');
         final createdOrder = orderResponse.data!;
+
+        print('🔍 DEBUG: createdOrder = $createdOrder');
+        print('🔍 DEBUG: createdOrder.orderId = ${createdOrder.orderId}');
+        print(
+          '🔍 DEBUG: createdOrder.orderNumber = ${createdOrder.orderNumber}',
+        );
+
+        // For multi-restaurant orders, use the first order ID for payment tracking
+        // The payment amount is the total for all restaurants
         String? createdOrderId =
             (createdOrder.orderId?.toString() ?? createdOrder.orderNumber);
 
+        print('🔍 DEBUG: createdOrderId = $createdOrderId');
+
+        Logger.info('✅ Order created successfully');
+        Logger.info('📦 Order ID: $createdOrderId');
+        Logger.info('💰 Total Amount: ${cartProvider.finalAmount}');
+
+        // Determine if this is a multi-restaurant order
+        final isMultiRestaurant = itemsByRestaurant.length > 1;
+        print('🔍 DEBUG: isMultiRestaurant = $isMultiRestaurant');
+        print('🔍 DEBUG: Number of restaurants = ${itemsByRestaurant.length}');
+
+        if (isMultiRestaurant) {
+          Logger.info(
+            '🏪 Multi-restaurant order with ${itemsByRestaurant.length} restaurants',
+          );
+          Logger.info(
+            '💳 Payment will be processed for total amount across all restaurants',
+          );
+        }
+
+        print('🔍 DEBUG: Payment method = ${widget.paymentMethod}');
+        print('🔍 DEBUG: Checking if payment method is MOMO...');
+
         // If MoMo selected, initiate MoMo request via backend and navigate to waiting page
         if (widget.paymentMethod == 'MOMO by MTN') {
+          print('✅ DEBUG: Payment method is MOMO, initiating payment...');
           try {
             final externalId =
                 createdOrderId ??
                 DateTime.now().millisecondsSinceEpoch.toString();
 
+            print('🔍 DEBUG: externalId = $externalId');
+
             // Allow any entered MoMo number — normalize and validate it first.
             final rawNumber = _momoController.text.trim().isNotEmpty
                 ? _momoController.text.trim()
                 : widget.selectedNumber.trim();
+
+            print('🔍 DEBUG: rawNumber = $rawNumber');
+            print('🔍 DEBUG: widget.selectedNumber = ${widget.selectedNumber}');
+
             final normalizedNumber = OrderApi.normalizeMsisdn(rawNumber);
+            print('🔍 DEBUG: normalizedNumber = $normalizedNumber');
+
+            final isValid = OrderApi.isValidMsisdn(normalizedNumber);
+            print('🔍 DEBUG: isValidMsisdn = $isValid');
+
             if (rawNumber.isEmpty ||
                 !OrderApi.isValidMsisdn(normalizedNumber)) {
+              print('❌ DEBUG: Invalid phone number!');
               if (mounted) {
                 await showDialog<void>(
                   context: context,
@@ -250,27 +306,54 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               return;
             }
 
+            print('✅ DEBUG: Phone number is valid, calling MoMo API...');
+            Logger.info('💳 Initiating MoMo payment...');
+            Logger.info('📱 Phone: $normalizedNumber');
+            Logger.info('💰 Amount: ${cartProvider.finalAmount}');
+
             final momoResp = await OrderApi.momoRequest(
               token: token,
               externalId: externalId,
               msisdn: normalizedNumber,
-              amount: cartProvider.finalAmount,
-              payerMessageTitle: 'Payment for order $externalId',
+              amount: cartProvider.finalAmount
+                  .roundToDouble(), // Ensure it's passed as a rounded value
+              payerMessageTitle: isMultiRestaurant
+                  ? 'Payment for ${itemsByRestaurant.length} restaurants - Order $externalId'
+                  : 'Payment for order $externalId',
               // callback will default to the shared webhook: /api/v1/momo/webhook/callback
             );
 
+            print('🔍 DEBUG: MoMo API response received');
+            print('🔍 DEBUG: momoResp.success = ${momoResp.success}');
+            print('🔍 DEBUG: momoResp.data = ${momoResp.data}');
+            print('🔍 DEBUG: momoResp.message = ${momoResp.message}');
+
             if (momoResp.success && momoResp.data != null) {
+              print('✅ DEBUG: MoMo request successful!');
               final mdata = momoResp.data!;
+              print('🔍 DEBUG: mdata = $mdata');
+
               String? requestId;
               if (mdata['requestId'] != null) {
                 requestId = mdata['requestId'].toString();
+                print('🔍 DEBUG: Found requestId = $requestId');
               } else if (mdata['id'] != null) {
                 requestId = mdata['id'].toString();
+                print('🔍 DEBUG: Found id = $requestId');
               } else if (mdata['data'] != null && mdata['data']['id'] != null) {
                 requestId = mdata['data']['id'].toString();
+                print('🔍 DEBUG: Found data.id = $requestId');
+              } else {
+                print('❌ DEBUG: No requestId found in response!');
               }
 
               if (requestId != null) {
+                print(
+                  '✅ DEBUG: Request ID found, navigating to payment page...',
+                );
+                Logger.info('✅ MoMo request initiated successfully');
+                Logger.info('🎫 Request ID: $requestId');
+
                 // Navigate to waiting screen which will poll status
                 final displayNumber = OrderApi.normalizeMsisdn(
                   widget.selectedNumber,
@@ -285,7 +368,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                     title: const Text('Payment Request Sent'),
                     content: SingleChildScrollView(
                       child: Text(
-                        'A payment request has been sent to $displayNumber. Please accept the request on your phone to complete payment.\n\nWhen you tap OK you will be taken to the payment status screen which will confirm when the payment completes.',
+                        isMultiRestaurant
+                            ? 'A payment request for RWF ${cartProvider.finalAmount} has been sent to $displayNumber for your order from ${itemsByRestaurant.length} restaurants.\n\nPlease accept the request on your phone to complete payment.\n\nWhen you tap OK you will be taken to the payment status screen which will confirm when the payment completes.'
+                            : 'A payment request has been sent to $displayNumber. Please accept the request on your phone to complete payment.\n\nWhen you tap OK you will be taken to the payment status screen which will confirm when the payment completes.',
                       ),
                     ),
                     actions: [
@@ -297,6 +382,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                   ),
                 );
 
+                print('🔍 DEBUG: Navigating to WaitingForPaymentPage...');
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
@@ -309,10 +395,18 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                   ),
                 );
                 return;
+              } else {
+                print(
+                  '❌ DEBUG: requestId is null, cannot proceed to payment page',
+                );
               }
+            } else {
+              print('❌ DEBUG: MoMo request failed!');
             }
 
             // If we reach here, momo initiation failed — show message and continue to orders
+            Logger.error('❌ MoMo request failed: ${momoResp.message}');
+            print('❌ DEBUG: Showing error to user...');
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -320,7 +414,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                 ),
               );
             }
-          } catch (e) {
+          } catch (e, stackTrace) {
+            print('❌ DEBUG: Exception during MoMo initiation!');
+            print('❌ DEBUG: Error: $e');
+            print('❌ DEBUG: Stack trace: $stackTrace');
             Logger.error('❌ MoMo initiation error: $e', e);
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -330,32 +427,51 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               );
             }
           }
+        } else {
+          print(
+            '⚠️ DEBUG: Payment method is NOT MOMO, skipping payment initiation',
+          );
+          print('🔍 DEBUG: Payment method value: "${widget.paymentMethod}"');
         }
 
         // Save a flag to SharedPreferences so OrdersPage shows success and refreshes
+        print('🔍 DEBUG: Saving order_placed flag...');
         try {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('order_placed', true);
           if (createdOrderId != null) {
             await prefs.setString('order_placed_id', createdOrderId);
           }
+          print('✅ DEBUG: order_placed flag saved');
         } catch (e) {
           Logger.warn('⚠️ Could not write order_placed flag: $e');
         }
 
+        // Clear the cart after successful order
+        print('🔍 DEBUG: Clearing cart...');
+        cartProvider.clearCart();
+        print('✅ DEBUG: Cart cleared');
+
         // Show immediate success feedback
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order placed successfully'),
+            SnackBar(
+              content: Text(
+                isMultiRestaurant
+                    ? 'Order placed successfully for ${itemsByRestaurant.length} restaurants!'
+                    : 'Order placed successfully',
+              ),
               backgroundColor: Colors.green,
             ),
           );
         }
 
         // Navigate to Orders screen and clear back stack so user lands on orders
+        print('🔍 DEBUG: Navigating to orders page...');
         Navigator.pushNamedAndRemoveUntil(context, '/orders', (route) => false);
         return;
+      } else {
+        print('❌ DEBUG: mounted is false, cannot proceed with payment');
       }
     } catch (e, stackTrace) {
       print('❌ Error placing order: $e');

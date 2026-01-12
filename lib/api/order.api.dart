@@ -181,12 +181,13 @@ class OrderApi {
     }
   }
 
-  /// Create a new order
+  /// Create a new order (supports multi-restaurant orders)
   /// POST /api/orders/createOrder
   static Future<ApiResponse<Order>> createOrder({
     required String token,
     required int customerId,
-    required int restaurantId,
+    required int
+    restaurantId, // Kept for backward compatibility, but will be ignored if restaurantOrders is provided
     required String deliveryAddressId,
     required List<OrderItem> orderItems,
     required String deliveryAddress,
@@ -199,14 +200,14 @@ class OrderApi {
     String? specialInstructions,
     int? promotionId,
     String? estimatedDeliveryTime,
+    Map<int, List<OrderItem>>?
+    restaurantOrders, // NEW: Multi-restaurant support
   }) async {
     try {
       Logger.info('🔄 Creating new order');
       Logger.info('👤 Customer ID: $customerId');
-      Logger.info('🏪 Restaurant ID: $restaurantId');
       Logger.info('📍 Delivery Address: $deliveryAddress');
       Logger.info('📞 Contact Number: $contactNumber');
-      Logger.info('🛒 Items: ${orderItems.length}');
       Logger.info('💰 Final Amount: $finalAmount');
 
       // Get current datetime in ISO8601 (includes date and time)
@@ -221,95 +222,116 @@ class OrderApi {
         deliveryAddressId,
       ); // may be null if not numeric
 
-      final orderItemsPayload = orderItems.map((item) {
-        final Map<String, dynamic> map = {
-          'itemId': item.itemId,
-          'menuItemId': item.menuItemId,
-          'itemName': item.itemName,
-          'quantity': item.quantity,
-          'unitPrice': item.unitPrice,
-          'totalPrice': item.totalPrice,
+      // Build the request body based on whether we have multi-restaurant orders
+      Map<String, dynamic> requestBody;
+
+      if (restaurantOrders != null && restaurantOrders.isNotEmpty) {
+        // Multi-restaurant order format
+        Logger.info(
+          '🏪 Multi-restaurant order with ${restaurantOrders.length} restaurants',
+        );
+
+        final restaurantOrdersPayload = restaurantOrders.entries.map((entry) {
+          final restaurantId = entry.key;
+          final items = entry.value;
+
+          Logger.info('  - Restaurant $restaurantId: ${items.length} items');
+
+          final orderItemsPayload = items.map((item) {
+            final Map<String, dynamic> map = {
+              'menuItemId': item.menuItemId,
+              'quantity': item.quantity,
+              'unitPrice': item.unitPrice,
+              'totalPrice': item.totalPrice,
+            };
+            if (item.specialInstructions != null &&
+                item.specialInstructions!.isNotEmpty) {
+              map['specialInstructions'] = item.specialInstructions;
+            }
+            if (item.variantIds != null && item.variantIds!.isNotEmpty) {
+              map['variantIds'] = item.variantIds;
+            }
+            return map;
+          }).toList();
+
+          return {
+            'restaurantId': restaurantId,
+            'orderItems': orderItemsPayload,
+          };
+        }).toList();
+
+        requestBody = <String, dynamic>{
+          'customerId': customerId,
+          'deliveryAddress': deliveryAddress,
+          'contactNumber': contactNumber,
+          'paymentMethod': paymentMethod,
+          'subTotal': subTotal,
+          'deliveryFee': deliveryFee,
+          'discountAmount': discountAmount,
+          'finalAmount': finalAmount,
+          'restaurantOrders': restaurantOrdersPayload,
         };
-        if (item.specialInstructions != null &&
-            item.specialInstructions!.isNotEmpty) {
-          map['specialInstructions'] = item.specialInstructions;
-        }
-        if (item.variantIds != null && item.variantIds!.isNotEmpty) {
-          map['variantIds'] = item.variantIds;
-        }
-        return map;
-      }).toList();
+      } else {
+        // Single restaurant order format (backward compatibility)
+        Logger.info('🏪 Single restaurant order: $restaurantId');
+        Logger.info('🛒 Items: ${orderItems.length}');
 
-      final requestBody = <String, dynamic>{
-        'restaurantId': restaurantId,
-        'customerId': customerId,
-        'orderStatus': 'PLACED',
-        'deliveryAddress': deliveryAddress,
-        'contactNumber': contactNumber,
-        'paymentStatus': 'PENDING',
-        'subTotal': subTotal,
-        'deliveryFee': deliveryFee,
-        'discountAmount': discountAmount,
-        'finalAmount': finalAmount,
-        'paymentMethod': paymentMethod,
-        'orderPlacedAt': orderPlacedAt,
-        'estimatedDelivery':
-            estimatedDeliveryTime ?? estimatedDeliveryDate, // ✅ ADDED THIS
-        'orderItems': orderItemsPayload,
-        if (specialInstructions != null && specialInstructions.isNotEmpty)
-          'specialInstructions': specialInstructions,
-        if (promotionId != null && promotionId > 0) 'promotionId': promotionId,
-      };
+        final orderItemsPayload = orderItems.map((item) {
+          final Map<String, dynamic> map = {
+            'itemId': item.itemId,
+            'menuItemId': item.menuItemId,
+            'itemName': item.itemName,
+            'quantity': item.quantity,
+            'unitPrice': item.unitPrice,
+            'totalPrice': item.totalPrice,
+          };
+          if (item.specialInstructions != null &&
+              item.specialInstructions!.isNotEmpty) {
+            map['specialInstructions'] = item.specialInstructions;
+          }
+          if (item.variantIds != null && item.variantIds!.isNotEmpty) {
+            map['variantIds'] = item.variantIds;
+          }
+          return map;
+        }).toList();
 
-      // Only include deliveryAddressId when it's a valid positive integer.
+        requestBody = <String, dynamic>{
+          'restaurantId': restaurantId,
+          'customerId': customerId,
+          'orderStatus': 'PLACED',
+          'deliveryAddress': deliveryAddress,
+          'contactNumber': contactNumber,
+          'paymentStatus': 'PENDING',
+          'subTotal': subTotal,
+          'deliveryFee': deliveryFee,
+          'discountAmount': discountAmount,
+          'finalAmount': finalAmount,
+          'paymentMethod': paymentMethod,
+          'orderPlacedAt': orderPlacedAt,
+          'estimatedDelivery': estimatedDeliveryTime ?? estimatedDeliveryDate,
+          'orderItems': orderItemsPayload,
+        };
+      }
+
+      // Add optional fields
       if (deliveryAddressIdNum != null && deliveryAddressIdNum > 0) {
-        // include both keys because backend sometimes expects customerAddressId
         requestBody['deliveryAddressId'] = deliveryAddressIdNum;
         requestBody['customerAddressId'] = deliveryAddressIdNum;
       }
+      if (specialInstructions != null && specialInstructions.isNotEmpty) {
+        requestBody['specialInstructions'] = specialInstructions;
+      }
+      if (promotionId != null && promotionId > 0) {
+        requestBody['promotionId'] = promotionId;
+      }
 
-      // Prepare a minimal payload first — some servers accept a smaller payload
-      final minimalBody = {
-        'restaurantId': restaurantId,
-        'customerId': customerId,
-        if (deliveryAddressIdNum != null && deliveryAddressIdNum > 0)
-          'customerAddressId': deliveryAddressIdNum,
-        'contactNumber': contactNumber,
-        'finalAmount': finalAmount,
-        'orderItems': orderItemsPayload
-            .map(
-              (it) => {
-                'menuItemId': it['menuItemId'] ?? it['menuItemId'],
-                'quantity': it['quantity'],
-              },
-            )
-            .toList(),
-      };
+      Logger.info('📤 Request body: ${jsonEncode(requestBody)}');
 
-      Logger.info(
-        '📤 Trying minimal request body first: ${jsonEncode(minimalBody)}',
-      );
-
-      var response = await http.post(
+      final response = await http.post(
         Uri.parse('$baseUrl/api/orders/createOrder'),
         headers: _getHeaders(token: token),
-        body: jsonEncode(minimalBody),
+        body: jsonEncode(requestBody),
       );
-
-      Logger.info('📡 Minimal attempt status: ${response.statusCode}');
-      Logger.info('📡 Minimal attempt body: ${response.body}');
-
-      // If minimal attempt failed with server error, fall back to full request
-      if (!(response.statusCode == 200 || response.statusCode == 201)) {
-        Logger.info('📤 Sending full request body: ${jsonEncode(requestBody)}');
-        response = await http.post(
-          Uri.parse('$baseUrl/api/orders/createOrder'),
-          headers: _getHeaders(token: token),
-          body: jsonEncode(requestBody),
-        );
-        Logger.info('📡 Full attempt status: ${response.statusCode}');
-        Logger.info('📡 Full attempt body: ${response.body}');
-      }
 
       Logger.info('📡 Response status: ${response.statusCode}');
       Logger.info('📡 Response body: ${response.body}');
@@ -321,20 +343,33 @@ class OrderApi {
         // 1) The order directly as a JSON object
         // 2) { success: true, data: { ...order... }, message: '...'}
         // 3) { data: { ...order... } }
+        // 4) An array of orders (for multi-restaurant)
+
+        if (data is List && data.isNotEmpty) {
+          // Multi-restaurant response - return the first order
+          final order = Order.fromJson(data[0]);
+          Logger.info('✅ Multi-restaurant order created successfully');
+          return ApiResponse<Order>(
+            success: true,
+            message: 'Order created successfully',
+            data: order,
+          );
+        }
+
         Map<String, dynamic> orderMap;
 
         if (data is Map<String, dynamic> && data.containsKey('data')) {
           final d = data['data'];
           if (d is Map<String, dynamic>) {
             orderMap = d;
+          } else if (d is List && d.isNotEmpty) {
+            orderMap = d[0];
           } else {
-            // Fallback: try to coerce
             orderMap = Map<String, dynamic>.from(d ?? {});
           }
         } else if (data is Map<String, dynamic>) {
           orderMap = data;
         } else {
-          // If it's not a map, try to parse as map anyway
           orderMap = Map<String, dynamic>.from({});
         }
 
@@ -349,7 +384,6 @@ class OrderApi {
             data: order,
           );
         } catch (e) {
-          // If parsing fails, return raw response as error for debugging
           Logger.warn('⚠️ Warning: Could not parse order JSON: $e');
           return ApiResponse<Order>(
             success: false,
@@ -357,119 +391,6 @@ class OrderApi {
                 'Order created but response parsing failed: ${e.toString()}',
             error: data,
           );
-        }
-      }
-
-      // If the server returned a 5xx, attempt a minimal second try to help
-      // identify the problem (useful in development). This attempts a safer
-      // minimal payload (menuItemId + quantity) and will return its result
-      // if successful. If not, return the original error.
-      if (response.statusCode >= 500) {
-        try {
-          Logger.warn(
-            '⚠️ Server error (${response.statusCode}). Trying minimal payload fallback...',
-          );
-          final minimalBody = {
-            'restaurantId': restaurantId,
-            'customerId': customerId,
-            'deliveryAddress': deliveryAddress,
-            'contactNumber': contactNumber,
-            'finalAmount': finalAmount,
-            'orderItems': orderItems
-                .map(
-                  (it) => {
-                    'menuItemId': it.menuItemId,
-                    'quantity': it.quantity,
-                  },
-                )
-                .toList(),
-          };
-
-          Logger.info('📤 Minimal request body: ${jsonEncode(minimalBody)}');
-          final fallbackResp = await http.post(
-            Uri.parse('$baseUrl/api/orders/createOrder'),
-            headers: _getHeaders(token: token),
-            body: jsonEncode(minimalBody),
-          );
-
-          Logger.info('📡 Fallback status: ${fallbackResp.statusCode}');
-          Logger.info('📡 Fallback body: ${fallbackResp.body}');
-
-          if (fallbackResp.statusCode == 200 ||
-              fallbackResp.statusCode == 201) {
-            final d = jsonDecode(fallbackResp.body);
-            if (d is Map<String, dynamic> && d.containsKey('data')) {
-              final order = Order.fromJson(d['data']);
-              return ApiResponse<Order>(
-                success: true,
-                data: order,
-                message: d['message'],
-              );
-            } else if (d is Map<String, dynamic>) {
-              final order = Order.fromJson(d);
-              return ApiResponse<Order>(
-                success: true,
-                message: d['message'] ?? 'Order created (fallback)',
-                data: order,
-              );
-            }
-          }
-        } catch (e) {
-          Logger.warn('⚠️ Fallback attempt failed: $e');
-        }
-        // Additional fallback: try minimal payload with deliveryAddressId as string
-        try {
-          final minimalWithStringAddress = {
-            'restaurantId': restaurantId,
-            'customerId': customerId,
-            'deliveryAddress': deliveryAddress,
-            'deliveryAddressId': deliveryAddressIdNum?.toString(),
-            'contactNumber': contactNumber,
-            'finalAmount': finalAmount,
-            'orderItems': orderItems
-                .map(
-                  (it) => {
-                    'menuItemId': it.menuItemId,
-                    'quantity': it.quantity,
-                  },
-                )
-                .toList(),
-          };
-
-          Logger.info(
-            '📤 Minimal (string address) body: ${jsonEncode(minimalWithStringAddress)}',
-          );
-
-          final fallbackResp2 = await http.post(
-            Uri.parse('$baseUrl/api/orders/createOrder'),
-            headers: _getHeaders(token: token),
-            body: jsonEncode(minimalWithStringAddress),
-          );
-
-          Logger.info('📡 Fallback2 status: ${fallbackResp2.statusCode}');
-          Logger.info('📡 Fallback2 body: ${fallbackResp2.body}');
-
-          if (fallbackResp2.statusCode == 200 ||
-              fallbackResp2.statusCode == 201) {
-            final d2 = jsonDecode(fallbackResp2.body);
-            if (d2 is Map<String, dynamic> && d2.containsKey('data')) {
-              final order = Order.fromJson(d2['data']);
-              return ApiResponse<Order>(
-                success: true,
-                data: order,
-                message: d2['message'],
-              );
-            } else if (d2 is Map<String, dynamic>) {
-              final order = Order.fromJson(d2);
-              return ApiResponse<Order>(
-                success: true,
-                data: order,
-                message: d2['message'] ?? 'Order created (fallback2)',
-              );
-            }
-          }
-        } catch (e) {
-          Logger.warn('⚠️ Fallback2 attempt failed: $e');
         }
       }
 
@@ -488,7 +409,7 @@ class OrderApi {
         return ApiResponse<Order>(
           success: false,
           message: errorMessage,
-          error: data ?? response.body, // Catch both structured and raw
+          error: data ?? response.body,
         );
       } catch (parseError) {
         return ApiResponse<Order>(
@@ -681,7 +602,7 @@ class OrderApi {
       };
 
       final response = await http.post(
-        Uri.parse('$baseUrl/api/payments/process'),
+        Uri.parse('$baseUrl/api/v1/payments/momo/request'),
         headers: _getHeaders(token: token),
         body: jsonEncode(body),
       );
@@ -718,7 +639,7 @@ class OrderApi {
     }
   }
 
-  /// Initiate a MoMo (mobile money) request via backend
+/// Initiate a MoMo (mobile money) request via backend
   /// POST /api/v1/payments/momo/request
   static Future<ApiResponse<Map<String, dynamic>>> momoRequest({
     required String token,
@@ -736,13 +657,13 @@ class OrderApi {
       if (normalizedMsisdn != msisdn) {
         Logger.info('🔁 Normalized msisdn: $msisdn -> $normalizedMsisdn');
       }
-      // Validate MSISDN before sending the request. Don't abort here —
-      // instead log a warning and attempt the request with sanitized digits.
+
       if (!isValidMsisdn(normalizedMsisdn)) {
         Logger.warn(
           '⚠️ Warning: Unusual MSISDN format after normalization: $normalizedMsisdn',
         );
       }
+
       if (normalizedMsisdn.isEmpty) {
         final msg = 'Empty mobile money number provided';
         Logger.warn('⚠️ $msg');
@@ -752,25 +673,36 @@ class OrderApi {
           error: null,
         );
       }
+
       final resolvedCallback =
           callback ?? '$baseUrl/api/v1/momo/webhook/callback';
 
-      // Ensure payerMessageDescription is provided as some backends require it
       final resolvedPayerMessageDescription =
           payerMessageDescription ??
           payerMessageTitle ??
           'Payment for order $externalId';
 
+      // ✅ FIXED REQUEST BODY
       final body = {
         'externalId': externalId,
         'msisdn': normalizedMsisdn,
-        'amount': amount,
+        'amount': amount.toInt().toString(), // ✅ String format
+        'currency': 'RWF', // ✅ Added currency
         if (payerMessageTitle != null) 'payerMessageTitle': payerMessageTitle,
         'payerMessageDescription': resolvedPayerMessageDescription,
         'callback': resolvedCallback,
       };
 
       Logger.info('📤 MoMo request body: ${jsonEncode(body)}');
+      print('🔍 DEBUG: ========== MOMO REQUEST DETAILS ==========');
+      print('🔍 DEBUG: URL: $baseUrl/api/v1/payments/momo/request');
+      print('🔍 DEBUG: msisdn: $normalizedMsisdn');
+      print(
+        '🔍 DEBUG: amount: ${amount.toInt().toString()} (string)',
+      ); // Updated
+      print('🔍 DEBUG: currency: RWF'); // Added
+      print('🔍 DEBUG: Full body: ${jsonEncode(body)}');
+      print('🔍 DEBUG: ==========================================');
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/v1/payments/momo/request'),
@@ -781,6 +713,11 @@ class OrderApi {
       Logger.info('📡 MoMo request status: ${response.statusCode}');
       Logger.info('📡 MoMo request body: ${response.body}');
 
+      print('🔍 DEBUG: ========== MOMO RESPONSE DETAILS ==========');
+      print('🔍 DEBUG: Status Code: ${response.statusCode}');
+      print('🔍 DEBUG: Response Body: ${response.body}');
+      print('🔍 DEBUG: ==========================================');
+
       final rawBody = response.body;
       dynamic data;
       try {
@@ -789,7 +726,6 @@ class OrderApi {
         data = rawBody;
       }
 
-      // helper to safely extract/serialize message values
       String extractMessage(dynamic maybe) {
         if (maybe == null) return '';
         if (maybe is String) return maybe;
@@ -814,13 +750,12 @@ class OrderApi {
         );
       }
 
-      // Return a detailed error so the UI/backend handoff can include raw body
       final errMsg =
           'Failed to initiate MoMo request (status: ${response.statusCode}) - ${respMessage}';
       Logger.warn('⚠️ MoMo initiation failed: $errMsg - body: $rawBody');
-      // Also print to terminal for easier debugging during development
       Logger.warn('⚠️ MoMo initiation failed: $errMsg');
       Logger.info('Response body: $rawBody');
+
       return ApiResponse<Map<String, dynamic>>(
         success: false,
         message: errMsg,
@@ -828,7 +763,6 @@ class OrderApi {
       );
     } catch (e, stack) {
       Logger.error('❌ Error initiating MoMo request: $e', e, stack);
-      // Print to terminal as well
       Logger.error('❌ Error initiating MoMo request: $e', e, stack);
       return ApiResponse<Map<String, dynamic>>(
         success: false,
