@@ -164,7 +164,7 @@ class CartProvider extends ChangeNotifier {
 
   double get subTotal => totalPrice;
 
-  double get deliveryFee => 2000.0; // You can make this dynamic
+  double get deliveryFee => 0.0; // You can make this dynamic
 
   double get discountAmount => 0.0; // Calculate based on promotions
 
