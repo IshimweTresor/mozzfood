@@ -28,7 +28,7 @@ class RegisteredUserData {
   final String location;
   final String phoneNumber;
   final String email;
-  final String roles;
+  final List<dynamic> roles;
   final bool emailVerified;
   final bool phoneVerified;
   final String? lastLogin;

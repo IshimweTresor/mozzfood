@@ -773,12 +773,25 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
 
     final resp = await _createAddressOnBackend(params);
     setState(() => _loading = false);
+
+    print('🌐 Create address response: ${resp?.statusCode}');
+    print('🌐 Response body: ${resp?.body}');
+
     if (resp != null && resp.statusCode >= 200 && resp.statusCode < 300) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Address created successfully')),
+        const SnackBar(
+          content: Text('Address created successfully!'),
+          backgroundColor: Colors.green,
+        ),
       );
-      Navigator.pop(context, {'lat': lat, 'lon': lon, 'address': displayName});
+      // Return result to trigger refresh
+      Navigator.pop(context, {
+        'lat': lat,
+        'lon': lon,
+        'address': displayName,
+        'success': true,
+      });
     } else {
       if (!mounted) return;
       final details = resp == null
@@ -804,13 +817,18 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
               retryResp.statusCode >= 200 &&
               retryResp.statusCode < 300) {
             if (!mounted) return;
+            print('✅ Address created successfully with picked city');
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Address created successfully')),
+              const SnackBar(
+                content: Text('Address created successfully!'),
+                backgroundColor: Colors.green,
+              ),
             );
             Navigator.pop(context, {
               'lat': lat,
               'lon': lon,
               'address': displayName,
+              'success': true,
             });
             return;
           }
@@ -856,33 +874,29 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
     }
   }
 
-  Future<bool> _promptForCityIdAndRetry(
-    Map<String, String> params,
-    double lat,
-    double lon,
-    String displayName,
-  ) async {
-    // Manual numeric city id entry removed. We rely on the backend country/city
-    // This function was previously a placeholder. We now prefer the
-    // interactive prompt implemented in _promptForNumericCityId. Keep this
-    // method for backward-compatibility by delegating to that prompt and
-    // performing the retry here when called by legacy callers.
-    final manualId = await _promptForNumericCityId();
-    if (manualId == null) return false;
-    try {
-      setState(() => _loading = true);
-      final newParams = Map<String, String>.from(params);
-      newParams['cityId'] = manualId.toString();
-      final retryResp = await _createAddressOnBackend(newParams);
-      setState(() => _loading = false);
-      return (retryResp != null &&
-          retryResp.statusCode >= 200 &&
-          retryResp.statusCode < 300);
-    } catch (_) {
-      setState(() => _loading = false);
-      return false;
-    }
-  }
+  // Unused - kept for backward compatibility reference
+  // Future<bool> _promptForCityIdAndRetry(
+  //   Map<String, String> params,
+  //   double lat,
+  //   double lon,
+  //   String displayName,
+  // ) async {
+  //   final manualId = await _promptForNumericCityId();
+  //   if (manualId == null) return false;
+  //   try {
+  //     setState(() => _loading = true);
+  //     final newParams = Map<String, String>.from(params);
+  //     newParams['cityId'] = manualId.toString();
+  //     final retryResp = await _createAddressOnBackend(newParams);
+  //     setState(() => _loading = false);
+  //     return (retryResp != null &&
+  //         retryResp.statusCode >= 200 &&
+  //         retryResp.statusCode < 300);
+  //   } catch (_) {
+  //     setState(() => _loading = false);
+  //     return false;
+  //   }
+  // }
 
   Future<int?> _promptForNumericCityId() async {
     final TextEditingController ctl = TextEditingController();

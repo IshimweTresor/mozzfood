@@ -18,8 +18,8 @@ class OrderApi {
   }
 
   // Normalize mobile numbers for MoMo requests to the backend-expected format:
-  // country code without leading plus (e.g. 250784107365).
-  // Adjust this function if you support multiple countries or obtain country from user profile.
+  // Expected formats: 250XXXXXXXXX (international), 07XXXXXXXXX (local), +250XXXXXXXXX
+  // All will be normalized to: 250XXXXXXXXX
   static String normalizeMsisdn(String msisdn) {
     var s = msisdn.trim();
     if (s.isEmpty) return s;
@@ -30,30 +30,74 @@ class OrderApi {
     // Remove leading international prefix expressed as 00
     if (s.startsWith('00')) s = s.substring(2);
 
-    // If user entered a local number starting with 0 (e.g. 07xxxxxxx), drop the 0
-    if (s.startsWith('0') && s.length > 1) s = s.substring(1);
-
-    // If number already contains country code 250, keep it
+    // If number starts with 250 (country code), keep it as is - this is the target format
     if (s.startsWith('250')) return s;
 
-    // If looks like a local 9-digit number (e.g. 7xxxxxxxx), prefix Rwanda code
+    // If user entered a local number starting with 0 (e.g. 07xxxxxxx), drop the 0 and add 250
+    if (s.startsWith('0') && s.length > 1) {
+      s = s.substring(1); // Remove leading 0
+      return '250$s'; // Add Rwanda country code
+    }
+
+    // If looks like a 9-digit number (e.g. 784107365), prefix Rwanda code
     if (s.length == 9) return '250$s';
 
-    // If length is reasonable (9-15 digits) return as-is; otherwise return digits-only string
+    // If length is reasonable (9-15 digits) return as-is
     if (s.length >= 9 && s.length <= 15) return s;
 
     return s; // fallback: cleaned digits
   }
 
   /// Very small validator to ensure we send a reasonable MSISDN to backend.
-  /// Returns true for numbers that look like an international Rwanda number
-  /// (e.g. `2507xxxxxxxx`) or a plain local 9-digit number.
+  /// Accepts: 250XXXXXXXXX (international), 07XXXXXXXXX (local), +250XXXXXXXXX
   static bool isValidMsisdn(String msisdn) {
     final s = msisdn.trim().replaceAll(RegExp(r'\D'), '');
     if (s.isEmpty) return false;
 
-    // Accept common valid lengths for MSISDNs (local and international)
+    // Accept numbers 9-15 digits (local or international)
+    // After normalization, should be 12 digits (250 + 9 digits)
     return s.length >= 9 && s.length <= 15;
+  }
+
+  /// Get delivery fee for a restaurant
+  /// GET /api/restaurants/{restaurantId}/delivery-fee
+  static Future<ApiResponse<Map<String, dynamic>>> getDeliveryFee({
+    required int restaurantId,
+  }) async {
+    try {
+      Logger.info('🔄 Fetching delivery fee for restaurant: $restaurantId');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/restaurants/$restaurantId/delivery-fee'),
+      );
+
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          message: 'Delivery fee fetched successfully',
+          data: data is Map<String, dynamic> ? data : {'fee': data},
+        );
+      }
+
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: data is Map<String, dynamic>
+            ? (data['message'] ?? 'Failed to fetch delivery fee')
+            : 'Failed to fetch delivery fee',
+        error: data,
+      );
+    } catch (e, stack) {
+      Logger.error('❌ Error fetching delivery fee: $e', e, stack);
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
   }
 
   /// Get all orders for a customer
@@ -339,6 +383,9 @@ class OrderApi {
       if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
+        print('🔍 DEBUG - Order response data type: ${data.runtimeType}');
+        print('🔍 DEBUG - Order response data: $data');
+
         // Backend may return different shapes:
         // 1) The order directly as a JSON object
         // 2) { success: true, data: { ...order... }, message: '...'}
@@ -347,19 +394,34 @@ class OrderApi {
 
         if (data is List && data.isNotEmpty) {
           // Multi-restaurant response - return the first order
-          final order = Order.fromJson(data[0]);
-          Logger.info('✅ Multi-restaurant order created successfully');
-          return ApiResponse<Order>(
-            success: true,
-            message: 'Order created successfully',
-            data: order,
-          );
+          print('🔍 DEBUG - Response is List with ${data.length} items');
+          print('🔍 DEBUG - First item: ${data[0]}');
+
+          try {
+            final order = Order.fromJson(data[0]);
+            Logger.info('✅ Multi-restaurant order created successfully');
+            return ApiResponse<Order>(
+              success: true,
+              message: 'Order created successfully',
+              data: order,
+            );
+          } catch (e, stack) {
+            Logger.error('❌ Error parsing order from list: $e', e, stack);
+            return ApiResponse<Order>(
+              success: false,
+              message: 'Order parsing failed: ${e.toString()}',
+              error: data,
+            );
+          }
         }
 
         Map<String, dynamic> orderMap;
 
         if (data is Map<String, dynamic> && data.containsKey('data')) {
           final d = data['data'];
+          print('🔍 DEBUG - data["data"] type: ${d.runtimeType}');
+          print('🔍 DEBUG - data["data"] value: $d');
+
           if (d is Map<String, dynamic>) {
             orderMap = d;
           } else if (d is List && d.isNotEmpty) {
@@ -373,6 +435,9 @@ class OrderApi {
           orderMap = Map<String, dynamic>.from({});
         }
 
+        print('🔍 DEBUG - Final orderMap keys: ${orderMap.keys.toList()}');
+        print('🔍 DEBUG - Final orderMap: $orderMap');
+
         try {
           final order = Order.fromJson(orderMap);
           Logger.info('✅ Order created successfully: ${order.orderNumber}');
@@ -383,8 +448,9 @@ class OrderApi {
                 : 'Order created successfully',
             data: order,
           );
-        } catch (e) {
-          Logger.warn('⚠️ Warning: Could not parse order JSON: $e');
+        } catch (e, stack) {
+          Logger.error('❌ Error parsing order: $e', e, stack);
+          print('📚 Stack trace: $stack');
           return ApiResponse<Order>(
             success: false,
             message:
@@ -639,7 +705,7 @@ class OrderApi {
     }
   }
 
-/// Initiate a MoMo (mobile money) request via backend
+  /// Initiate a MoMo (mobile money) request via backend
   /// POST /api/v1/payments/momo/request
   static Future<ApiResponse<Map<String, dynamic>>> momoRequest({
     required String token,
@@ -683,11 +749,19 @@ class OrderApi {
           'Payment for order $externalId';
 
       // ✅ FIXED REQUEST BODY
+      // Backend expects `orderId` for MoMo initiation; we include it when available.
+      final maybeOrderId = int.tryParse(externalId);
+
+      // Send full amount with decimals, not just integer
+      final amountString = amount.toStringAsFixed(2); // e.g., "101.54"
+
       final body = {
         'externalId': externalId,
+        if (maybeOrderId != null)
+          'orderId': maybeOrderId, // Send as integer, not string
         'msisdn': normalizedMsisdn,
-        'amount': amount.toInt().toString(), // ✅ String format
-        'currency': 'RWF', // ✅ Added currency
+        'amount': amountString, // Send full amount with decimals
+        'currency': 'RWF',
         if (payerMessageTitle != null) 'payerMessageTitle': payerMessageTitle,
         'payerMessageDescription': resolvedPayerMessageDescription,
         'callback': resolvedCallback,
@@ -697,10 +771,9 @@ class OrderApi {
       print('🔍 DEBUG: ========== MOMO REQUEST DETAILS ==========');
       print('🔍 DEBUG: URL: $baseUrl/api/v1/payments/momo/request');
       print('🔍 DEBUG: msisdn: $normalizedMsisdn');
-      print(
-        '🔍 DEBUG: amount: ${amount.toInt().toString()} (string)',
-      ); // Updated
-      print('🔍 DEBUG: currency: RWF'); // Added
+      print('🔍 DEBUG: amount: $amountString RWF (full amount with decimals)');
+      print('🔍 DEBUG: currency: RWF');
+      print('🔍 DEBUG: orderId included: ${maybeOrderId != null}');
       print('🔍 DEBUG: Full body: ${jsonEncode(body)}');
       print('🔍 DEBUG: ==========================================');
 
@@ -741,6 +814,15 @@ class OrderApi {
           : extractMessage(data);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ DEBUG: MoMo backend returned SUCCESS');
+        print('✅ DEBUG: Response data: $data');
+        if (data is Map) {
+          print('✅ DEBUG: Data keys: ${data.keys.toList()}');
+          print('✅ DEBUG: Full data dump:');
+          data.forEach((key, value) {
+            print('  - $key: $value (type: ${value.runtimeType})');
+          });
+        }
         return ApiResponse<Map<String, dynamic>>(
           success: true,
           message: respMessage.isNotEmpty
@@ -867,6 +949,55 @@ class OrderApi {
     } catch (e, stack) {
       Logger.error('❌ Error updating payment status: $e', e, stack);
       return ApiResponse<Payment>(
+        success: false,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Update order payment status
+  /// PUT /api/orders/{orderId}/updatePaymentStatus
+  static Future<ApiResponse<Order>> updateOrderPaymentStatus({
+    required String token,
+    required int orderId,
+    required String paymentStatus,
+  }) async {
+    try {
+      Logger.info('🔄 Updating order payment status');
+      Logger.info('📦 Order ID: $orderId');
+      Logger.info('💳 Payment Status: $paymentStatus');
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/orders/$orderId/updatePaymentStatus'),
+        headers: _getHeaders(token: token),
+        body: jsonEncode({'paymentStatus': paymentStatus}),
+      );
+
+      Logger.info('📡 Response status: ${response.statusCode}');
+      Logger.info('📡 Response body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (data['success'] == true || data['data'] != null) {
+          final order = Order.fromJson(data['data'] ?? data);
+          Logger.info('✅ Order payment status updated successfully');
+          return ApiResponse<Order>(
+            success: true,
+            message: data['message'] ?? 'Order payment status updated',
+            data: order,
+          );
+        }
+      }
+
+      return ApiResponse<Order>(
+        success: false,
+        message: data['message'] ?? 'Failed to update order payment status',
+        error: data['error'],
+      );
+    } catch (e, stack) {
+      Logger.error('❌ Error updating order payment status: $e', e, stack);
+      return ApiResponse<Order>(
         success: false,
         message: 'Network error: ${e.toString()}',
       );

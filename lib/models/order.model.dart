@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import '../utils/date_parser.dart';
 
 part 'order.model.g.dart';
 
@@ -25,6 +26,11 @@ String? _safeStringFromJson(dynamic value) {
   return value.toString();
 }
 
+// Helper function to safely convert date arrays or strings to ISO8601 strings
+String? _safeDateFromJson(dynamic value) {
+  return DateParser.toIso8601(value);
+}
+
 @JsonSerializable(explicitToJson: true)
 class Order {
   final int? orderId;
@@ -43,13 +49,29 @@ class Order {
   final double? finalAmount;
   final String? paymentMethod;
   final String? paymentStatus;
+
+  @JsonKey(fromJson: _safeDateFromJson)
   final String? orderPlacedAt;
+
+  @JsonKey(fromJson: _safeDateFromJson)
   final String? orderConfirmedAt;
+
+  @JsonKey(fromJson: _safeDateFromJson)
   final String? foodReadyAt;
+
+  @JsonKey(fromJson: _safeDateFromJson)
   final String? pickedUpAt;
+
+  @JsonKey(fromJson: _safeDateFromJson)
   final String? deliveredAt;
+
+  @JsonKey(fromJson: _safeDateFromJson)
   final String? cancelledAt;
+
+  @JsonKey(fromJson: _safeDateFromJson)
   final String? createdAt;
+
+  @JsonKey(fromJson: _safeDateFromJson)
   final String? updatedAt;
 
   @JsonKey(fromJson: _safeStringFromJson)
@@ -111,7 +133,10 @@ class Order {
 @JsonSerializable()
 class OrderStatusHistory {
   final String? status;
+
+  @JsonKey(fromJson: _safeDateFromJson)
   final String? timestamp;
+
   final String? message;
 
   OrderStatusHistory({this.status, this.timestamp, this.message});

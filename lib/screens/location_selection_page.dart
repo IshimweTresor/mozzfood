@@ -40,6 +40,13 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
       _authToken = prefs.getString('auth_token');
+      final customerId = prefs.get('customer_id');
+
+      Logger.info(
+        '🔐 Auth Token: ${_authToken != null ? "Present" : "Missing"}',
+      );
+      Logger.info('👤 Customer ID: $customerId');
+
       // restore locally saved country preference if available
       final saved = prefs.getString('selected_country');
       if (saved != null && saved.isNotEmpty) {
@@ -47,12 +54,15 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
       }
 
       if (_authToken == null) {
+        Logger.error('❌ No auth token, redirecting to login');
         _navigateToLogin();
         return;
       }
 
+      Logger.info('🔄 Starting to fetch user locations...');
       await _fetchUserLocations();
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.error('❌ Failed to load user data: $e', e, stack);
       _showErrorMessage('Failed to load user data');
     }
   }
@@ -80,19 +90,37 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
         });
         return;
       }
+      Logger.info('🔄 Fetching locations for customer: $customerId');
       final response = await UserApi.getCustomerAddresses(
         token: _authToken!,
         customerId: customerId,
       );
-      if (response.success && response.data != null) {
+
+      Logger.info('📍 Response success: ${response.success}');
+      Logger.info('📍 Response data: ${response.data?.length ?? 0} locations');
+
+      if (response.success) {
         setState(() {
-          _savedLocations = response.data!;
+          _savedLocations = response.data ?? [];
         });
+        Logger.info('✅ Loaded ${_savedLocations.length} locations');
+        if (_savedLocations.isEmpty) {
+          Logger.info('ℹ️ No locations found for this customer');
+        }
       } else {
+        Logger.error('❌ Failed to load locations: ${response.message}');
         _showErrorMessage(response.message);
+        // Set empty list so UI doesn't show stale data
+        setState(() {
+          _savedLocations = [];
+        });
       }
-    } catch (e) {
-      _showErrorMessage('Failed to load locations');
+    } catch (e, stack) {
+      Logger.error('❌ Exception loading locations: $e', e, stack);
+      _showErrorMessage('Failed to load locations: ${e.toString()}');
+      setState(() {
+        _savedLocations = [];
+      });
     } finally {
       setState(() {
         _isLoading = false;
@@ -312,15 +340,22 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
   // Country picker and selection removed: map is opened directly from the row above.
 
   Future<void> _openMapForCountry(String? country) async {
+    Logger.info('🗺️ Opening map for country: $country');
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => MapLocationPickerPage(initialCountry: country),
       ),
     );
+
+    Logger.info('🔙 Returned from map with result: $result');
+
     if (result != null) {
+      Logger.info('✅ Location was created, refreshing list...');
       await _fetchUserLocations();
       _showSuccessMessage('Location created successfully');
+    } else {
+      Logger.info('ℹ️ No location created (user cancelled or error)');
     }
   }
 

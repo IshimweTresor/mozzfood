@@ -20,6 +20,7 @@ import 'screens/about_us_page.dart';
 import 'screens/more_options_page.dart';
 import 'screens/personal_information_page.dart';
 import 'screens/test_restaurants_page.dart';
+import 'screens/waiting_for_payment_page.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -129,6 +130,17 @@ class VubaApp extends StatelessWidget {
         '/more-options': (context) => const MoreOptionsPage(),
         '/personal-information': (context) => const PersonalInformationPage(),
         '/test-restaurants': (context) => const TestRestaurantsPage(),
+        '/waiting-for-payment': (context) {
+          final args =
+              ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+          return WaitingForPaymentPage(
+            token: args?['token'] ?? '',
+            orderId: args?['orderId'] ?? '',
+            requestId: args?['requestId'] ?? '',
+            amount: args?['amount'] ?? 0.0,
+          );
+        },
       },
     );
   }

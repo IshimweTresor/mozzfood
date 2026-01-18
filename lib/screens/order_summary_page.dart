@@ -15,7 +15,6 @@ import '../widgets/safe_network_image.dart';
 import 'address_book_page.dart';
 import 'mobile_wallet_numbers_page.dart';
 import 'payment_method_page.dart';
-import 'waiting_for_payment_page.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final String paymentMethod;
@@ -49,7 +48,19 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     super.initState();
     // Pre-fill MOMO input with the selected number so user can edit it
     _momoController.text = widget.selectedNumber;
-    // No special payment initialization required here.
+    // Fetch delivery fee when order summary page loads
+    _fetchDeliveryFee();
+  }
+
+  Future<void> _fetchDeliveryFee() async {
+    try {
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      if (cartProvider.currentRestaurantId != null) {
+        await cartProvider.fetchDeliveryFee();
+      }
+    } catch (e) {
+      Logger.error('❌ Error fetching delivery fee: $e');
+    }
   }
 
   Future<void> _placeOrder() async {
@@ -153,6 +164,15 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       }
 
       // Call API to create multi-restaurant order
+      Logger.info(
+        '📦 Creating order with ${restaurantOrders.length} restaurant(s)',
+      );
+      for (var entry in restaurantOrders.entries) {
+        Logger.info(
+          '   - Restaurant ${entry.key}: ${entry.value.length} items',
+        );
+      }
+
       final orderResponse = await OrderApi.createOrder(
         token: token,
         customerId: int.parse(customerId),
@@ -162,7 +182,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         contactNumber: widget.selectedNumber.isNotEmpty
             ? widget.selectedNumber
             : '0000000000',
-        orderItems: [], // Empty for multi-restaurant orders
+        orderItems:
+            const [], // Empty for multi-restaurant, items are in restaurantOrders
         deliveryAddress:
             chosenLocation?.address ??
             widget.selectedLocation?.address ??
@@ -175,7 +196,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         specialInstructions: _instructionsController.text.trim().isNotEmpty
             ? _instructionsController.text.trim()
             : null,
-        restaurantOrders: restaurantOrders, // Multi-restaurant support
+        restaurantOrders:
+            restaurantOrders, // FIXED: Send the actual multi-restaurant orders
       );
 
       print('🔍 DEBUG: Checking order response...');
@@ -226,6 +248,25 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         print('🔍 DEBUG: createdOrderId = $createdOrderId');
 
         Logger.info('✅ Order created successfully');
+
+        // Update order payment status to PROCESSING when order is successfully created
+        if (createdOrderId != null) {
+          try {
+            int? orderId = int.tryParse(createdOrderId);
+            if (orderId != null) {
+              Logger.info('🔄 Updating order payment status to PROCESSING');
+              await OrderApi.updateOrderPaymentStatus(
+                token: token,
+                orderId: orderId,
+                paymentStatus: 'PROCESSING',
+              );
+              Logger.info('✅ Order payment status updated to PROCESSING');
+            }
+          } catch (e) {
+            Logger.warn('⚠️ Could not update order payment status: $e');
+            // Don't fail the order if payment status update fails
+          }
+        }
         Logger.info('📦 Order ID: $createdOrderId');
         Logger.info('💰 Total Amount: ${cartProvider.finalAmount}');
 
@@ -309,14 +350,28 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
             print('✅ DEBUG: Phone number is valid, calling MoMo API...');
             Logger.info('💳 Initiating MoMo payment...');
             Logger.info('📱 Phone: $normalizedNumber');
-            Logger.info('💰 Amount: ${cartProvider.finalAmount}');
+            final double paymentAmount =
+                (createdOrder.finalAmount ?? cartProvider.finalAmount)
+                    .toDouble();
+            Logger.info('💰 Amount: $paymentAmount');
+
+            print('🔍 DEBUG: ============ PHONE NUMBER DEBUG ============');
+            print('🔍 DEBUG: Raw input: $rawNumber');
+            print('🔍 DEBUG: After normalization: $normalizedNumber');
+            print('🔍 DEBUG: Phone length: ${normalizedNumber.length}');
+            print(
+              '🔍 DEBUG: Starts with 250: ${normalizedNumber.startsWith('250')}',
+            );
+            print(
+              '🔍 DEBUG: Starts with 07: ${normalizedNumber.startsWith('07')}',
+            );
+            print('🔍 DEBUG: ==============================================');
 
             final momoResp = await OrderApi.momoRequest(
               token: token,
               externalId: externalId,
               msisdn: normalizedNumber,
-              amount: cartProvider.finalAmount
-                  .roundToDouble(), // Ensure it's passed as a rounded value
+              amount: paymentAmount,
               payerMessageTitle: isMultiRestaurant
                   ? 'Payment for ${itemsByRestaurant.length} restaurants - Order $externalId'
                   : 'Payment for order $externalId',
@@ -337,6 +392,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               if (mdata['requestId'] != null) {
                 requestId = mdata['requestId'].toString();
                 print('🔍 DEBUG: Found requestId = $requestId');
+              } else if (mdata['referenceId'] != null) {
+                requestId = mdata['referenceId'].toString();
+                print('🔍 DEBUG: Found referenceId = $requestId');
               } else if (mdata['id'] != null) {
                 requestId = mdata['id'].toString();
                 print('🔍 DEBUG: Found id = $requestId');
@@ -346,32 +404,35 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               } else {
                 print('❌ DEBUG: No requestId found in response!');
               }
-
               if (requestId != null) {
                 print(
-                  '✅ DEBUG: Request ID found, navigating to payment page...',
+                  '✅ DEBUG: Request ID found, payment request initiated...',
                 );
                 Logger.info('✅ MoMo request initiated successfully');
                 Logger.info('🎫 Request ID: $requestId');
 
-                // Navigate to waiting screen which will poll status
-                final displayNumber = OrderApi.normalizeMsisdn(
-                  widget.selectedNumber,
-                );
-
                 if (!mounted) return;
-                // Inform the user that the payment request was sent and prompt them to accept it on their phone
+
+                // Mark order as placed before navigating
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('order_placed', true);
+                  await prefs.setString(
+                    'order_placed_id',
+                    createdOrderId ?? externalId,
+                  );
+                } catch (e) {
+                  print('⚠️ Could not save order flag: $e');
+                }
+
+                // Show confirmation dialog
                 await showDialog<void>(
                   context: context,
                   barrierDismissible: false,
                   builder: (context) => AlertDialog(
                     title: const Text('Payment Request Sent'),
-                    content: SingleChildScrollView(
-                      child: Text(
-                        isMultiRestaurant
-                            ? 'A payment request for RWF ${cartProvider.finalAmount} has been sent to $displayNumber for your order from ${itemsByRestaurant.length} restaurants.\n\nPlease accept the request on your phone to complete payment.\n\nWhen you tap OK you will be taken to the payment status screen which will confirm when the payment completes.'
-                            : 'A payment request has been sent to $displayNumber. Please accept the request on your phone to complete payment.\n\nWhen you tap OK you will be taken to the payment status screen which will confirm when the payment completes.',
-                      ),
+                    content: const Text(
+                      'Check your phone to complete payment.\n\nTrack your order in the Orders section.',
                     ),
                     actions: [
                       TextButton(
@@ -382,17 +443,14 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                   ),
                 );
 
-                print('🔍 DEBUG: Navigating to WaitingForPaymentPage...');
-                Navigator.pushReplacement(
+                if (!mounted) return;
+
+                // Navigate to orders page to track order
+                print('🏁 Navigating to orders page...');
+                Navigator.pushNamedAndRemoveUntil(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => WaitingForPaymentPage(
-                      token: token,
-                      orderId: createdOrderId ?? externalId,
-                      requestId: requestId!,
-                      amount: cartProvider.finalAmount,
-                    ),
-                  ),
+                  '/orders',
+                  (r) => false,
                 );
                 return;
               } else {

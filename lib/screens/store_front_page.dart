@@ -4,6 +4,7 @@ import '../api/vendor.api.dart';
 import '../models/vendor.model.dart';
 import '../utils/colors.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/safe_network_image.dart';
 import 'store_detail_page.dart';
 
 class StoreFrontPage extends StatefulWidget {
@@ -52,7 +53,7 @@ class _StoreFrontPageState extends State<StoreFrontPage> {
         });
       } else {
         setState(() {
-          _errorMessage = response.message ?? 'Failed to load vendors';
+          _errorMessage = response.message.toString();
           _isLoading = false;
         });
       }
@@ -405,17 +406,31 @@ class StoreCard extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(16),
                   ),
-                  child: Container(
-                    height: 90,
-                    color: AppColors.primary.withOpacity(0.1),
-                    child: const Center(
-                      child: Icon(
-                        Icons.store,
-                        size: 40,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
+                  child: (vendor.image != null && vendor.image!.isNotEmpty)
+                      ? SafeNetworkImage(
+                          url: vendor.image!,
+                          height: 90,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        )
+                      : (vendor.logo != null && vendor.logo!.isNotEmpty)
+                      ? SafeNetworkImage(
+                          url: vendor.logo!,
+                          height: 90,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          height: 90,
+                          color: AppColors.primary.withOpacity(0.1),
+                          child: const Center(
+                            child: Icon(
+                              Icons.store,
+                              size: 40,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
                 ),
                 Positioned(
                   top: 8,

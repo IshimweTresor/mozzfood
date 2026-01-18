@@ -20,6 +20,8 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordController = TextEditingController(); // ✅ Added password field
   final _confirmPasswordController =
       TextEditingController(); // ✅ Added confirm password
+  final _countryController =
+      TextEditingController(); // ✅ Added country controller
 
   String _selectedCountry = 'Rwanda'; // ✅ Default to Rwanda
   String _selectedCountryCode = '+250';
@@ -33,6 +35,7 @@ class _SignUpPageState extends State<SignUpPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _countryController.dispose();
     super.dispose();
   }
 
@@ -177,6 +180,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   setState(() {
                     _selectedCountry = 'Rwanda';
                     _selectedCountryCode = '+250';
+                    _countryController.text = 'Rwanda';
                   });
                   Navigator.pop(context);
                 },
@@ -233,6 +237,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   setState(() {
                     _selectedCountry = 'Mozambique';
                     _selectedCountryCode = '+258';
+                    _countryController.text = 'Mozambique';
                   });
                   Navigator.pop(context);
                 },
@@ -268,9 +273,15 @@ class _SignUpPageState extends State<SignUpPage> {
         roles: 'CUSTOMER',
       );
 
-      if (response.success && response.data != null) {
+      if (response.success) {
+        // Even if parsing fails (data == null), still navigate so the user
+        // can enter the verification code they received.
+        final requiresVerification =
+            response.data?.requiresVerification ?? true;
+
         _showSuccessMessage(response.message);
-        if (response.data!.requiresVerification) {
+
+        if (requiresVerification) {
           if (mounted) {
             Navigator.pushReplacement(
               context,
@@ -424,8 +435,8 @@ class _SignUpPageState extends State<SignUpPage> {
 
                 // Country Selection
                 CustomTextField(
-                  hintText: _selectedCountry,
-                  controller: TextEditingController(),
+                  hintText: 'Select Country',
+                  controller: _countryController,
                   readOnly: true,
                   onTap: _showCountryPicker,
                   prefix: const Padding(

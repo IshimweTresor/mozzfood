@@ -19,14 +19,14 @@ Order _$OrderFromJson(Map<String, dynamic> json) => Order(
   finalAmount: (json['finalAmount'] as num?)?.toDouble(),
   paymentMethod: json['paymentMethod'] as String?,
   paymentStatus: json['paymentStatus'] as String?,
-  orderPlacedAt: json['orderPlacedAt'] as String?,
-  orderConfirmedAt: json['orderConfirmedAt'] as String?,
-  foodReadyAt: json['foodReadyAt'] as String?,
-  pickedUpAt: json['pickedUpAt'] as String?,
-  deliveredAt: json['deliveredAt'] as String?,
-  cancelledAt: json['cancelledAt'] as String?,
-  createdAt: json['createdAt'] as String?,
-  updatedAt: json['updatedAt'] as String?,
+  orderPlacedAt: _safeDateFromJson(json['orderPlacedAt']),
+  orderConfirmedAt: _safeDateFromJson(json['orderConfirmedAt']),
+  foodReadyAt: _safeDateFromJson(json['foodReadyAt']),
+  pickedUpAt: _safeDateFromJson(json['pickedUpAt']),
+  deliveredAt: _safeDateFromJson(json['deliveredAt']),
+  cancelledAt: _safeDateFromJson(json['cancelledAt']),
+  createdAt: _safeDateFromJson(json['createdAt']),
+  updatedAt: _safeDateFromJson(json['updatedAt']),
   estimatedDeliveryTime: _safeStringFromJson(json['estimatedDeliveryTime']),
   currentStatus: json['currentStatus'] as String?,
   statusHistory: (json['statusHistory'] as List<dynamic>?)
@@ -84,7 +84,7 @@ Map<String, dynamic> _$OrderToJson(Order instance) => <String, dynamic>{
 OrderStatusHistory _$OrderStatusHistoryFromJson(Map<String, dynamic> json) =>
     OrderStatusHistory(
       status: json['status'] as String?,
-      timestamp: json['timestamp'] as String?,
+      timestamp: _safeDateFromJson(json['timestamp']),
       message: json['message'] as String?,
     );
 

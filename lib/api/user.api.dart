@@ -10,6 +10,7 @@ import 'package:vuba/response/user_responses.dart';
 import '../models/user.model.dart' show LoginResponse;
 import '../models/user.model.dart' as user_model;
 import '../utils/logger.dart';
+import '../utils/date_parser.dart';
 
 class UserApi {
   // Get customer addresses by customerId
@@ -24,45 +25,100 @@ class UserApi {
 
       Logger.info('📡 GetCustomerAddresses Response: ${response.statusCode}');
       Logger.info('   - Body: ${response.body}');
+      print('🔍 DEBUG - Full response body:');
+      print(response.body);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print('🔍 DEBUG - Decoded data: $data');
+        print('🔍 DEBUG - data["data"] type: ${data['data'].runtimeType}');
+        print('🔍 DEBUG - data["data"] value: ${data['data']}');
+
         // The backend returns a map with a 'data' field containing the list
-        final locationsList = data['data'] as List;
+        final locationsList = (data['data'] ?? []) as List;
+
+        Logger.info('📍 Parsing ${locationsList.length} addresses');
+        print('🔍 DEBUG - locationsList length: ${locationsList.length}');
+
         final locations = locationsList.map((json) {
+          // Build a complete address from all parts with safe type handling
+          final areaName = (json['areaName'] is String)
+              ? json['areaName'] as String
+              : '';
+          final street = (json['street'] is String)
+              ? json['street'] as String
+              : '';
+          final houseNumber = (json['houseNumber'] is String)
+              ? json['houseNumber'] as String
+              : '';
+          final cityName = (json['cityName'] is String)
+              ? json['cityName'] as String
+              : '';
+
+          // Combine address parts into one readable string
+          final addressParts = <String>[];
+          if (areaName.isNotEmpty) addressParts.add(areaName);
+          if (street.isNotEmpty) addressParts.add(street);
+          if (houseNumber.isNotEmpty) addressParts.add(houseNumber);
+          if (cityName.isNotEmpty) addressParts.add(cityName);
+          final fullAddress = addressParts.isNotEmpty
+              ? addressParts.join(', ')
+              : 'No address provided';
+
+          // Use addressType as the name (HOME, WORK, OTHER) - safely handle type
+          final addressType = (json['addressType'] is String)
+              ? json['addressType'] as String
+              : 'Location';
+
+          // Safely get phone number
+          final phone = (json['localContactNumber'] is String)
+              ? json['localContactNumber'] as String
+              : null;
+
+          // Safely get image URL
+          final imageUrl = (json['imageUrl'] is String)
+              ? json['imageUrl'] as String
+              : null;
+
+          // Safely parse createdAt - backend returns [year, month, day] array or ISO8601 string
+          final createdAt = DateParser.parseDate(json['createdAt']);
+
+          Logger.info(
+            '   ✅ ${json['customerAddressId']}: $addressType - $fullAddress',
+          );
+
           // Manually map backend fields to model fields
           return user_model.SavedLocation(
             id: json['customerAddressId']?.toString(),
-            name:
-                json['areaName'] ??
-                'Address', // Use areaName as name or fallback
-            address:
-                json['street'] ??
-                'No Street', // Use street as address or fallback
+            name: addressType,
+            address: fullAddress,
             lat: json['latitude'] != null
                 ? (json['latitude'] as num).toDouble()
                 : 0.0,
             lng: json['longitude'] != null
                 ? (json['longitude'] as num).toDouble()
                 : 0.0,
-            phone: json['localContactNumber'] as String?,
-            imageUrl: json['imageUrl'] as String?,
+            phone: phone,
+            imageUrl: imageUrl,
             isDefault: json['isDefault'] as bool? ?? false,
-            createdAt: json['createdAt'] == null
-                ? null
-                : DateTime.parse(json['createdAt'] as String),
+            createdAt: createdAt,
           );
         }).toList();
+
+        Logger.info('📍 Successfully parsed ${locations.length} addresses');
+
         return ApiResponse<List<user_model.SavedLocation>>(
           success: true,
           data: locations,
           message: data['message'] ?? 'Fetched customer addresses',
         );
       } else {
+        final data = jsonDecode(response.body);
+        Logger.error('❌ Failed to fetch addresses: ${data['message']}');
         return ApiResponse<List<user_model.SavedLocation>>(
           success: false,
-          data: null,
-          message: 'Failed to fetch customer addresses',
+          data: [],
+          message: data['message'] ?? 'Failed to fetch customer addresses',
         );
       }
     } catch (e, stack) {
@@ -262,11 +318,26 @@ class UserApi {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         Logger.info('✅ Registration successful!');
-        return ApiResponse<RegisterResponse>(
-          success: true,
-          message: data['message'] ?? 'Registration successful',
-          data: RegisterResponse.fromJson(data),
-        );
+
+        try {
+          final parsed = RegisterResponse.fromJson(data);
+          return ApiResponse<RegisterResponse>(
+            success: true,
+            message: data['message'] ?? 'Registration successful',
+            data: parsed,
+          );
+        } catch (parseError, stackTrace) {
+          Logger.warn('⚠️ Failed to parse RegisterResponse: $parseError');
+          Logger.warn('⚠️ Payload: $data');
+          Logger.error('⚠️ Parse stacktrace', parseError, stackTrace);
+          // Still return success so the user can proceed to OTP screen.
+          return ApiResponse<RegisterResponse>(
+            success: true,
+            message: data['message']?.toString() ?? 'Registration successful',
+            data: null,
+            error: 'parse_error',
+          );
+        }
       } else {
         Logger.warn('❌ Registration failed.');
         return ApiResponse<RegisterResponse>(
@@ -527,7 +598,7 @@ class UserApi {
         final list = data['data'] as List? ?? [];
         // Ensure items are maps
         final parsed = list.map<Map<String, dynamic>>((e) {
-          if (e is Map) return Map<String, dynamic>.from(e as Map);
+          if (e is Map) return Map<String, dynamic>.from(e);
           return <String, dynamic>{};
         }).toList();
         return ApiResponse<List<Map<String, dynamic>>>(
@@ -568,7 +639,7 @@ class UserApi {
         final data = jsonDecode(response.body);
         final list = data['data'] as List? ?? [];
         final parsed = list.map<Map<String, dynamic>>((e) {
-          if (e is Map) return Map<String, dynamic>.from(e as Map);
+          if (e is Map) return Map<String, dynamic>.from(e);
           return <String, dynamic>{};
         }).toList();
         return ApiResponse<List<Map<String, dynamic>>>(

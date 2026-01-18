@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/menuItem.api.dart';
-import '../models/menuItem.model.dart' hide Vendor;
+import '../models/menuItem.model.dart';
 import '../models/vendor.model.dart';
 import '../providers/cartproviders.dart';
 import '../utils/colors.dart';

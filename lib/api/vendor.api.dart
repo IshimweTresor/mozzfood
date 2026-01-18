@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/vendor.model.dart';
 import '../response/api_response.dart';
 import '../utils/logger.dart';
+import '../utils/date_parser.dart';
 
 class VendorApi {
   static const String baseUrl = 'https://delivery.apis.ivas.rw/api/restaurants';
@@ -32,32 +33,41 @@ class VendorApi {
         // The API returns restaurants directly as an array
         final List<dynamic> vendorsJson = data; // data is already the array
         Logger.info('📊 Processing ${vendorsJson.length} restaurants');
+        if (vendorsJson.isNotEmpty) {
+          Logger.info(
+            '🔍 First restaurant raw data: ${jsonEncode(vendorsJson[0])}',
+          );
+        }
 
-        final vendors = vendorsJson
-            .map(
-              (v) => Vendor.fromJson({
-                'restaurantId': v['restaurantId'] is String
-                    ? int.parse(v['restaurantId'])
-                    : v['restaurantId'],
-                'restaurantName': v['restaurantName'],
-                'location': v['location'],
-                'cuisineType': v['cuisineType'],
-                'email': v['email'],
-                'phoneNumber': v['phoneNumber'],
-                'description': v['description'],
-                'rating': (v['rating'] ?? 0.0).toDouble(),
-                'totalOrders': v['totalOrders'],
-                'totalReviews': v['totalReviews'],
-                'averagePreparationTime': v['averagePreparationTime'],
-                'deliveryFee': v['deliveryFee']?.toDouble(),
-                'minimumOrderAmount': v['minimumOrderAmount']?.toDouble(),
-                'operatingHours': v['operatingHours'],
-                'createdAt': v['createdAt'],
-                'updatedAt': v['updatedAt'],
-                'active': v['active'] ?? true,
-              }),
-            )
-            .toList();
+        final vendors = vendorsJson.map((v) {
+          print('🏪 Restaurant: ${v['restaurantName']}');
+          print('   logoUrl field: ${v['logoUrl']}');
+          print('   All fields: ${v.keys.toList()}');
+
+          return Vendor.fromJson({
+            'restaurantId': v['restaurantId'] is String
+                ? int.parse(v['restaurantId'])
+                : v['restaurantId'],
+            'restaurantName': v['restaurantName'],
+            'location': v['location'],
+            'cuisineType': v['cuisineType'],
+            'email': v['email'],
+            'phoneNumber': v['phoneNumber'],
+            'description': v['description'],
+            'rating': (v['rating'] ?? 0.0).toDouble(),
+            'totalOrders': v['totalOrders'],
+            'totalReviews': v['totalReviews'],
+            'averagePreparationTime': v['averagePreparationTime'],
+            'deliveryFee': v['deliveryFee']?.toDouble(),
+            'minimumOrderAmount': v['minimumOrderAmount']?.toDouble(),
+            'operatingHours': v['operatingHours'],
+            'image': v['logoUrl'] ?? '',
+            'logo': v['logoUrl'] ?? '',
+            'createdAt': DateParser.toIso8601(v['createdAt']),
+            'updatedAt': DateParser.toIso8601(v['updatedAt']),
+            'active': v['active'] ?? true,
+          });
+        }).toList();
 
         return ApiResponse<List<Vendor>>(
           success: true,

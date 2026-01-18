@@ -4,12 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/menuItem.model.dart';
+import '../api/order.api.dart';
+import '../utils/logger.dart';
 
 class CartProvider extends ChangeNotifier {
   static const String _cartKey = 'cart_items';
   List<CartItem> _items = [];
   int? _currentRestaurantId;
   String? _currentRestaurantName;
+  double _deliveryFee = 0.0;
+  bool _isLoadingDeliveryFee = false;
 
   CartProvider() {
     _loadCart();
@@ -18,6 +22,8 @@ class CartProvider extends ChangeNotifier {
   List<CartItem> get items => List.unmodifiable(_items);
   int? get currentRestaurantId => _currentRestaurantId;
   String? get currentRestaurantName => _currentRestaurantName;
+  double get deliveryFee => _deliveryFee;
+  bool get isLoadingDeliveryFee => _isLoadingDeliveryFee;
 
   Future<String?> getAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -159,16 +165,72 @@ class CartProvider extends ChangeNotifier {
 
   int get totalItems => _items.fold(0, (sum, e) => sum + e.quantity);
 
-  double get totalPrice =>
-      _items.fold(0.0, (sum, e) => sum + (e.item.price ?? 0) * e.quantity);
+  double get totalPrice {
+    return _items.fold(0.0, (sum, e) => sum + ((e.item.price) * e.quantity));
+  }
 
   double get subTotal => totalPrice;
 
-  double get deliveryFee => 0.0; // You can make this dynamic
-
   double get discountAmount => 0.0; // Calculate based on promotions
 
-  double get finalAmount => subTotal + deliveryFee - discountAmount;
+  // Delivery fee is handled by restaurant/backend, not added to customer's payment
+  double get finalAmount => subTotal - discountAmount;
+
+  /// Fetch delivery fee from API for the current restaurant
+  Future<void> fetchDeliveryFee() async {
+    if (_currentRestaurantId == null || _currentRestaurantId! <= 0) {
+      Logger.warn('⚠️ Cannot fetch delivery fee: No valid restaurant ID');
+      _deliveryFee = 0.0;
+      notifyListeners();
+      return;
+    }
+
+    _isLoadingDeliveryFee = true;
+    notifyListeners();
+
+    try {
+      Logger.info(
+        '🔄 Fetching delivery fee for restaurant: $_currentRestaurantId',
+      );
+      final response = await OrderApi.getDeliveryFee(
+        restaurantId: _currentRestaurantId!,
+      );
+
+      if (response.success && response.data != null) {
+        final data = response.data!;
+        double fee = 0.0;
+
+        // Handle different possible response formats
+        if (data.containsKey('deliveryFee')) {
+          fee = (data['deliveryFee'] as num).toDouble();
+        } else if (data.containsKey('fee')) {
+          fee = (data['fee'] as num).toDouble();
+        } else if (data.containsKey('amount')) {
+          fee = (data['amount'] as num).toDouble();
+        }
+
+        _deliveryFee = fee;
+        Logger.info('✅ Delivery fee fetched: RWF $_deliveryFee');
+      } else {
+        Logger.warn(
+          '⚠️ Failed to fetch delivery fee: ${response.message}. Using default.',
+        );
+        _deliveryFee = 0.0;
+      }
+    } catch (e) {
+      Logger.error('❌ Error fetching delivery fee: $e');
+      _deliveryFee = 0.0;
+    }
+
+    _isLoadingDeliveryFee = false;
+    notifyListeners();
+  }
+
+  /// Manually set delivery fee (for testing or fallback)
+  void setDeliveryFee(double fee) {
+    _deliveryFee = fee;
+    notifyListeners();
+  }
 
   bool _listEquals(List<int> a, List<int> b) {
     if (a.length != b.length) return false;

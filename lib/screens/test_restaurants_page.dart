@@ -47,11 +47,15 @@ class _TestRestaurantsPageState extends State<TestRestaurantsPage> {
           print('   Active: ${restaurant.active}');
           print('   Phone: ${restaurant.phoneNumber}');
           print('   Email: ${restaurant.email}');
+          print('   🖼️ IMAGE: ${restaurant.image}');
+          print('   🏷️ LOGO: ${restaurant.logo}');
+          print('   Image is empty: ${restaurant.image?.isEmpty ?? true}');
+          print('   Logo is empty: ${restaurant.logo?.isEmpty ?? true}');
           print('-------------------');
         }
       } else {
         setState(() {
-          _error = response.message ?? 'Failed to fetch restaurants';
+          _error = response.message.toString();
           _isLoading = false;
         });
         print('❌ Error: $_error');
@@ -77,61 +81,59 @@ class _TestRestaurantsPageState extends State<TestRestaurantsPage> {
           ),
         ],
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _error.isNotEmpty
-              ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(_error, style: const TextStyle(color: Colors.red)),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _fetchRestaurants,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              )
-              : _restaurants.isEmpty
-              ? const Center(child: Text('No restaurants found'))
-              : ListView.builder(
-                itemCount: _restaurants.length,
-                itemBuilder: (context, index) {
-                  final restaurant = _restaurants[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: ListTile(
-                      title: Text(
-                        restaurant.restaurantName ?? 'Unnamed Restaurant',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Cuisine: ${restaurant.cuisineType ?? 'N/A'}'),
-                          Text('Location: ${restaurant.location ?? 'N/A'}'),
-                          Text(
-                            'Rating: ${restaurant.rating?.toStringAsFixed(1) ?? 'N/A'}',
-                          ),
-                        ],
-                      ),
-                      trailing: Icon(
-                        Icons.circle,
-                        color:
-                            restaurant.active == true
-                                ? Colors.green
-                                : Colors.red,
-                        size: 12,
-                      ),
-                    ),
-                  );
-                },
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error.isNotEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_error, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _fetchRestaurants,
+                    child: const Text('Retry'),
+                  ),
+                ],
               ),
+            )
+          : _restaurants.isEmpty
+          ? const Center(child: Text('No restaurants found'))
+          : ListView.builder(
+              itemCount: _restaurants.length,
+              itemBuilder: (context, index) {
+                final restaurant = _restaurants[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: ListTile(
+                    title: Text(
+                      restaurant.restaurantName ?? 'Unnamed Restaurant',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Cuisine: ${restaurant.cuisineType ?? 'N/A'}'),
+                        Text('Location: ${restaurant.location ?? 'N/A'}'),
+                        Text(
+                          'Rating: ${restaurant.rating?.toStringAsFixed(1) ?? 'N/A'}',
+                        ),
+                      ],
+                    ),
+                    trailing: Icon(
+                      Icons.circle,
+                      color: restaurant.active == true
+                          ? Colors.green
+                          : Colors.red,
+                      size: 12,
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

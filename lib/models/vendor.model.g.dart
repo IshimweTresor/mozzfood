@@ -21,6 +21,8 @@ Vendor _$VendorFromJson(Map<String, dynamic> json) => Vendor(
   deliveryFee: (json['deliveryFee'] as num?)?.toDouble(),
   minimumOrderAmount: (json['minimumOrderAmount'] as num?)?.toDouble(),
   operatingHours: json['operatingHours'] as String?,
+  image: json['image'] as String?,
+  logo: json['logo'] as String?,
   createdAt: json['createdAt'] == null
       ? null
       : DateTime.parse(json['createdAt'] as String),
@@ -45,6 +47,8 @@ Map<String, dynamic> _$VendorToJson(Vendor instance) => <String, dynamic>{
   'deliveryFee': instance.deliveryFee,
   'minimumOrderAmount': instance.minimumOrderAmount,
   'operatingHours': instance.operatingHours,
+  'image': instance.image,
+  'logo': instance.logo,
   'createdAt': instance.createdAt?.toIso8601String(),
   'updatedAt': instance.updatedAt?.toIso8601String(),
   'active': instance.active,

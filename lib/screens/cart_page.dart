@@ -14,7 +14,6 @@ class CartPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
     final cartItems = cartProvider.items;
-    final restaurantId = cartProvider.currentRestaurantId;
     final restaurantName = cartProvider.currentRestaurantName;
 
     return Scaffold(
@@ -429,7 +428,7 @@ class CartPage extends StatelessWidget {
                   const SizedBox(height: 8),
                   _buildSummaryRow(
                     'Total amount',
-                    'RWF ${cartProvider.totalPrice + 1}',
+                    'RWF ${cartProvider.finalAmount}',
                     isTotal: true,
                   ),
                 ],

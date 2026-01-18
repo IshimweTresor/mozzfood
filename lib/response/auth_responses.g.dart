@@ -31,7 +31,7 @@ RegisteredUserData _$RegisteredUserDataFromJson(Map<String, dynamic> json) =>
       location: json['location'] as String,
       phoneNumber: json['phoneNumber'] as String,
       email: json['email'] as String,
-      roles: json['roles'] as String,
+      roles: json['roles'] as List<dynamic>,
       emailVerified: json['emailVerified'] as bool,
       phoneVerified: json['phoneVerified'] as bool,
       lastLogin: json['lastLogin'] as String?,

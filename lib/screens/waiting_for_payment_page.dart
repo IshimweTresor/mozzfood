@@ -44,6 +44,8 @@ class _WaitingForPaymentPageState extends State<WaitingForPaymentPage> {
       _isChecking = true;
       _attempts++;
 
+      print('🔍 Checking payment status (attempt $_attempts/$_maxAttempts)...');
+
       final resp = await OrderApi.momoStatus(
         token: widget.token,
         requestId: widget.requestId,
@@ -51,41 +53,73 @@ class _WaitingForPaymentPageState extends State<WaitingForPaymentPage> {
 
       _isChecking = false;
 
+      print(
+        '🔍 MoMo status response: success=${resp.success}, data=${resp.data}',
+      );
+
       if (resp.success && resp.data != null) {
         final data = resp.data!;
-        // Try multiple shapes for status
+
+        // Extract status from multiple possible fields
         String? serverStatus;
+        dynamic rawStatus;
+
+        // Check all possible status fields
         if (data['status'] != null) {
-          serverStatus = data['status'].toString();
-        } else if (data['data'] != null && data['data']['status'] != null) {
-          serverStatus = data['data']['status'].toString();
+          rawStatus = data['status'];
         } else if (data['paymentStatus'] != null) {
-          serverStatus = data['paymentStatus'].toString();
+          rawStatus = data['paymentStatus'];
+        } else if (data['transactionStatus'] != null) {
+          rawStatus = data['transactionStatus'];
+        } else if (data['data'] is Map) {
+          final innerData = data['data'] as Map;
+          rawStatus =
+              innerData['status'] ??
+              innerData['paymentStatus'] ??
+              innerData['transactionStatus'];
         }
 
-        serverStatus = serverStatus?.toUpperCase();
+        serverStatus = rawStatus?.toString().toUpperCase();
+
+        print('🔍 Extracted status: "$serverStatus" from raw: $rawStatus');
 
         setState(() {
           _status = serverStatus ?? 'PENDING';
         });
 
         if (serverStatus != null) {
+          // SUCCESS patterns
           if (serverStatus.contains('SUCCESS') ||
+              serverStatus.contains('SUCCESSFUL') ||
               serverStatus.contains('COMPLETED') ||
               serverStatus.contains('PAID') ||
+              serverStatus.contains('APPROVED') ||
               serverStatus.contains('SUCCEEDED')) {
+            print('✅ Payment SUCCESS detected!');
             _timer?.cancel();
             await _onSuccess();
             return;
           }
 
+          // FAILURE patterns (only consider explicit failures)
           if (serverStatus.contains('FAILED') ||
-              serverStatus.contains('CANCELLED')) {
+              serverStatus.contains('REJECTED') ||
+              serverStatus.contains('DECLINED') ||
+              serverStatus.contains('CANCELLED') ||
+              serverStatus.contains('ERROR')) {
+            print('❌ Payment FAILURE detected!');
             _timer?.cancel();
             await _onFailure();
             return;
           }
+
+          // Still pending
+          print('⏳ Payment still PENDING: $serverStatus');
+        } else {
+          print('⚠️ No status found in response');
         }
+      } else {
+        print('⚠️ MoMo status check failed: ${resp.message}');
       }
 
       if (_attempts >= _maxAttempts) {
@@ -96,31 +130,44 @@ class _WaitingForPaymentPageState extends State<WaitingForPaymentPage> {
   }
 
   Future<void> _onSuccess() async {
+    print('✅ Processing successful payment...');
+
     // Mark order placed flag so Orders page will refresh
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('order_placed', true);
       await prefs.setString('order_placed_id', widget.orderId);
+      print('✅ Order placed flag saved');
     } catch (e) {
-      // ignore
+      print('⚠️ Could not save order flag: $e');
+    }
+
+    // Update order payment status to COMPLETED when payment is successful
+    try {
+      int? orderId = int.tryParse(widget.orderId);
+      if (orderId != null) {
+        print('🔄 Updating order payment status to COMPLETED...');
+        final result = await OrderApi.updateOrderPaymentStatus(
+          token: widget.token,
+          orderId: orderId,
+          paymentStatus: 'COMPLETED',
+        );
+        print('✅ Order payment status updated: ${result.success}');
+      }
+    } catch (e) {
+      print('⚠️ Could not update order payment status: $e');
     }
 
     if (!mounted) return;
 
-    // Show a modal dialog to notify the user on mobile
+    // Simple success message
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Payment Confirmed'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Payment of ${widget.amount.toStringAsFixed(2)} confirmed.'),
-            const SizedBox(height: 8),
-            Text('Order: ${widget.orderId}'),
-          ],
+        title: const Text('Payment Successful'),
+        content: Text(
+          'RWF ${widget.amount.toStringAsFixed(0)} paid successfully.',
         ),
         actions: [
           TextButton(
@@ -132,26 +179,37 @@ class _WaitingForPaymentPageState extends State<WaitingForPaymentPage> {
     );
 
     if (!mounted) return;
+    print('🏁 Navigating to orders page...');
     Navigator.pushNamedAndRemoveUntil(context, '/orders', (r) => false);
   }
 
   Future<void> _onFailure() async {
     if (!mounted) return;
 
+    print('❌ Processing failed payment...');
+
+    // Update order payment status to FAILED when payment fails
+    try {
+      int? orderId = int.tryParse(widget.orderId);
+      if (orderId != null) {
+        print('🔄 Updating order payment status to FAILED...');
+        await OrderApi.updateOrderPaymentStatus(
+          token: widget.token,
+          orderId: orderId,
+          paymentStatus: 'FAILED',
+        );
+        print('✅ Order payment status updated to FAILED');
+      }
+    } catch (e) {
+      print('⚠️ Could not update order payment status: $e');
+    }
+
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Payment Failed'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Your payment could not be completed.'),
-            const SizedBox(height: 8),
-            Text('Order: ${widget.orderId}'),
-          ],
-        ),
+        title: const Text('Payment Not Completed'),
+        content: const Text('Payment was declined or cancelled.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -162,19 +220,22 @@ class _WaitingForPaymentPageState extends State<WaitingForPaymentPage> {
     );
 
     if (!mounted) return;
+    print('🏁 Navigating to orders page...');
     Navigator.pushNamedAndRemoveUntil(context, '/orders', (r) => false);
   }
 
   Future<void> _onTimeout() async {
     if (!mounted) return;
 
+    print('⏱️ Payment status check timed out after $_attempts attempts');
+
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Payment Pending'),
+        title: const Text('Checking Payment...'),
         content: const Text(
-          'Payment not confirmed. Please try again or check your wallet.',
+          'Payment confirmation is taking longer than expected. Please check your orders to see if payment completed.',
         ),
         actions: [
           TextButton(
@@ -186,6 +247,7 @@ class _WaitingForPaymentPageState extends State<WaitingForPaymentPage> {
     );
 
     if (!mounted) return;
+    print('🏁 Navigating to orders page...');
     Navigator.pushNamedAndRemoveUntil(context, '/orders', (r) => false);
   }
 

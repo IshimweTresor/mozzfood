@@ -18,6 +18,8 @@ class Vendor {
   final double? deliveryFee;
   final double? minimumOrderAmount;
   final String? operatingHours;
+  final String? image;
+  final String? logo;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool? active;
@@ -37,6 +39,8 @@ class Vendor {
     this.deliveryFee,
     this.minimumOrderAmount,
     this.operatingHours,
+    this.image,
+    this.logo,
     this.createdAt,
     this.updatedAt,
     this.active,

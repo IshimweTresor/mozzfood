@@ -53,8 +53,9 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
         // Split name for first/last name fields
         final names = _user!.name.split(' ');
         _firstNameController.text = names.isNotEmpty ? names.first : '';
-        _lastNameController.text =
-            names.length > 1 ? names.sublist(1).join(' ') : '';
+        _lastNameController.text = names.length > 1
+            ? names.sublist(1).join(' ')
+            : '';
         _phoneController.text = _user!.phone;
         _emailController.text = _user!.email;
         _loading = false;
@@ -94,7 +95,7 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(response.message ?? 'Failed to update account'),
+          content: Text(response.message.toString()),
           backgroundColor: Colors.red,
         ),
       );
@@ -135,64 +136,63 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
           ),
         ),
       ),
-      body:
-          _loading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                children: [
-                  // Profile Section
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        // Profile Picture
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFF4A90E2),
-                            border: Border.all(color: Colors.white, width: 3),
-                          ),
-                          child: const Icon(
-                            Icons.person,
-                            size: 40,
-                            color: Colors.white,
-                          ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // Profile Section
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // Profile Picture
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF4A90E2),
+                          border: Border.all(color: Colors.white, width: 3),
                         ),
-                        const SizedBox(height: 16),
-                        // User Name
-                        Text(
-                          _user?.name ?? '',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.onBackground,
-                          ),
+                        child: const Icon(
+                          Icons.person,
+                          size: 40,
+                          color: Colors.white,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 16),
+                      // User Name
+                      Text(
+                        _user?.name ?? '',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.onBackground,
+                        ),
+                      ),
+                    ],
                   ),
-                  // Tab Navigation
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        Expanded(child: _buildTab('Details')),
-                        Expanded(child: _buildTab('Edit Details')),
-                        Expanded(child: _buildTab('Security')),
-                      ],
-                    ),
+                ),
+                // Tab Navigation
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(child: _buildTab('Details')),
+                      Expanded(child: _buildTab('Edit Details')),
+                      Expanded(child: _buildTab('Security')),
+                    ],
                   ),
-                  // Tab Content
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.all(20),
-                      child: _buildTabContent(),
-                    ),
+                ),
+                // Tab Content
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.all(20),
+                    child: _buildTabContent(),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -220,8 +220,9 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color:
-                isSelected ? AppColors.onBackground : AppColors.textSecondary,
+            color: isSelected
+                ? AppColors.onBackground
+                : AppColors.textSecondary,
           ),
         ),
       ),
@@ -403,42 +404,41 @@ class _PersonalInformationPageState extends State<PersonalInformationPage> {
   void _showDeleteAccountDialog() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: AppColors.surface,
-            title: const Text(
-              'Delete Account',
-              style: TextStyle(color: AppColors.onBackground),
-            ),
-            content: const Text(
-              'Are you sure you want to delete your account? This action cannot be undone.',
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Delete Account',
+          style: TextStyle(color: AppColors.onBackground),
+        ),
+        content: const Text(
+          'Are you sure you want to delete your account? This action cannot be undone.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
               style: TextStyle(color: AppColors.textSecondary),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Account deletion request submitted'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                },
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: AppColors.error),
-                ),
-              ),
-            ],
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Account deletion request submitted'),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
