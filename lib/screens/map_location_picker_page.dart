@@ -693,6 +693,33 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
     }
   }
 
+  // Auto default city mapping by country or coordinates
+  int? _autoDefaultCityId(
+    Map<String, dynamic>? geocode,
+    double lat,
+    double lon,
+  ) {
+    try {
+      final country = geocode != null && geocode['address'] is Map
+          ? (geocode['address']['country'] as String?)
+          : null;
+      final c = country?.toLowerCase() ?? '';
+      // Rwanda bounding box and name check
+      if (c.contains('rwanda') ||
+          (lat >= -2.9 && lat <= -1.0 && lon >= 29.0 && lon <= 31.0)) {
+        print('🛠️ Auto defaulting to Kigali (Rwanda) cityId=1');
+        return 1; // Kigali default
+      }
+      // Mozambique bounding box and name check
+      if (c.contains('mozambique') ||
+          (lat >= -26.0 && lat <= -11.0 && lon >= 31.0 && lon <= 41.0)) {
+        print('🛠️ Auto defaulting to Maputo (Mozambique) cityId=2');
+        return 2; // Maputo default
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> _onConfirm() async {
     setState(() => _loading = true);
     final lat = _center.latitude;
@@ -729,16 +756,21 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
         '';
 
     // Try to resolve city id automatically via backend. If unresolved,
-    // show the picker so the user can select the correct city before
-    // attempting to create the address (backend requires `cityId`).
+    // try auto default based on country/coordinates first.
     int? resolvedCityId = await _resolveCityId(
       areaName,
       geocode,
       showPickerOnFail: false,
     );
 
+    // If backend city resolution failed, try auto default mapping
     if (resolvedCityId == null) {
-      // Ask the user to pick from backend-provided cities
+      resolvedCityId = _autoDefaultCityId(geocode, lat, lon);
+      print('🛠️ Using auto-detected cityId: $resolvedCityId');
+    }
+
+    // Last resort: show picker if still unresolved
+    if (resolvedCityId == null) {
       resolvedCityId = await _resolveCityId(
         areaName,
         geocode,
@@ -798,18 +830,26 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
           ? 'No response (network or timeout).'
           : 'Status ${resp.statusCode}: ${resp.body}';
 
-      // If server returned 400 (city id not found) allow the user to enter a
-      // numeric cityId and retry as a quick client-side workaround.
+      // If server returned 400 (city id not found or invalid), try fallback strategies
       if (resp != null && resp.statusCode == 400) {
-        // Try resolving a city id by showing backend-provided cities first.
-        final pickedCityId = await _resolveCityId(
-          areaName,
-          geocode,
-          showPickerOnFail: true,
-        );
-        if (pickedCityId != null) {
+        print('⚠️ Got 400 error, trying fallback city resolution...');
+
+        // Strategy 1: Try auto default city ID
+        int? fallbackCityId = _autoDefaultCityId(geocode, lat, lon);
+
+        // Strategy 2: If auto default fails, show picker
+        if (fallbackCityId == null) {
+          fallbackCityId = await _resolveCityId(
+            areaName,
+            geocode,
+            showPickerOnFail: true,
+          );
+        }
+
+        // Retry with fallback city ID
+        if (fallbackCityId != null) {
           final newParams = Map<String, String>.from(params);
-          newParams['cityId'] = pickedCityId.toString();
+          newParams['cityId'] = fallbackCityId.toString();
           setState(() => _loading = true);
           final retryResp = await _createAddressOnBackend(newParams);
           setState(() => _loading = false);
@@ -817,7 +857,6 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
               retryResp.statusCode >= 200 &&
               retryResp.statusCode < 300) {
             if (!mounted) return;
-            print('✅ Address created successfully with picked city');
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Address created successfully!'),
@@ -829,31 +868,6 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
               'lon': lon,
               'address': displayName,
               'success': true,
-            });
-            return;
-          }
-        }
-
-        // If backend cities are unavailable, prompt the user to enter a numeric
-        // cityId manually (useful when server-side static resources are missing).
-        final manualId = await _promptForNumericCityId();
-        if (manualId != null) {
-          final newParams = Map<String, String>.from(params);
-          newParams['cityId'] = manualId.toString();
-          setState(() => _loading = true);
-          final retryResp = await _createAddressOnBackend(newParams);
-          setState(() => _loading = false);
-          if (retryResp != null &&
-              retryResp.statusCode >= 200 &&
-              retryResp.statusCode < 300) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Address created successfully')),
-            );
-            Navigator.pop(context, {
-              'lat': lat,
-              'lon': lon,
-              'address': displayName,
             });
             return;
           }
@@ -897,48 +911,6 @@ class _MapLocationPickerPageState extends State<MapLocationPickerPage> {
   //     return false;
   //   }
   // }
-
-  Future<int?> _promptForNumericCityId() async {
-    final TextEditingController ctl = TextEditingController();
-    final result = await showDialog<int?>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Enter City ID'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'The server city list is unavailable. Please enter the numeric city ID provided by the admin or backend so we can create this address.',
-                style: TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: ctl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(hintText: 'e.g. 12'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(null),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final v = int.tryParse(ctl.text.trim());
-                Navigator.of(ctx).pop(v);
-              },
-              child: const Text('Use ID'),
-            ),
-          ],
-        );
-      },
-    );
-    return result;
-  }
 
   @override
   Widget build(BuildContext context) {

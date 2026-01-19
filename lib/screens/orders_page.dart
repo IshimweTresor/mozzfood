@@ -136,10 +136,13 @@ class _OrdersPageState extends State<OrdersPage> {
         setState(() {
           _isLoading = false;
           if (response.success && response.data != null) {
-            // DEBUG: Log raw -> parsed timestamps for each order to help diagnose timezone issues
+            // DEBUG: Log order statuses to help diagnose filtering issues
             try {
               for (final o in response.data!) {
                 try {
+                  print(
+                    '📦 Order ${o.orderId}: orderStatus="${o.orderStatus}" paymentStatus="${o.paymentStatus}"',
+                  );
                   print(
                     '🕒 Order ${o.orderId} raw orderPlacedAt: ${o.orderPlacedAt}',
                   );
@@ -165,19 +168,35 @@ class _OrdersPageState extends State<OrdersPage> {
 
             // Filter orders based on selected status
             _orders = response.data!.where((order) {
+              final orderStatus = order.orderStatus?.toUpperCase() ?? '';
+              final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
+
               switch (_selectedStatus) {
                 case 'Processing':
+                  // Show orders that are in progress or pending payment
                   return [
-                    'PENDING',
-                    'PLACED', // ✅ include PLACED here
-                    'PROCESSING',
-                    'PREPARING',
-                    'ON_THE_WAY',
-                  ].contains(order.orderStatus?.toUpperCase());
+                        'PENDING',
+                        'PLACED', // ✅ include PLACED here
+                        'PROCESSING',
+                        'PREPARING',
+                        'ON_THE_WAY',
+                      ].contains(orderStatus) ||
+                      ['PENDING', 'PROCESSING'].contains(paymentStatus);
+
                 case 'Completed':
-                  return order.orderStatus?.toUpperCase() == 'DELIVERED';
+                  // Show orders that are delivered OR have completed payment
+                  return orderStatus == 'DELIVERED' ||
+                      paymentStatus == 'COMPLETED' ||
+                      paymentStatus == 'SUCCEEDED' ||
+                      paymentStatus == 'SUCCESS';
+
                 case 'Failed':
-                  return order.orderStatus?.toUpperCase() == 'CANCELLED';
+                  // Show orders that are cancelled OR have failed payment
+                  return orderStatus == 'CANCELLED' ||
+                      paymentStatus == 'FAILED' ||
+                      paymentStatus == 'REJECTED' ||
+                      paymentStatus == 'DECLINED';
+
                 default:
                   return true;
               }
@@ -216,7 +235,7 @@ class _OrdersPageState extends State<OrdersPage> {
         final status = order.orderStatus?.toUpperCase() ?? '';
         final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
 
-        return paymentStatus == 'PENDING' ||
+        return ['PENDING', 'PROCESSING'].contains(paymentStatus) ||
             status == 'PENDING' ||
             status == 'PLACED' || // ✅ Added PLACED
             status == 'ACCEPTED' ||
@@ -224,14 +243,24 @@ class _OrdersPageState extends State<OrdersPage> {
             status == 'ON_THE_WAY';
       }).toList();
     } else if (_selectedStatus == 'Completed') {
+      // Show orders that are delivered OR have completed payment
       return _orders.where((order) {
         final status = order.orderStatus?.toUpperCase() ?? '';
-        return status == 'DELIVERED';
+        final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
+        return status == 'DELIVERED' ||
+            paymentStatus == 'COMPLETED' ||
+            paymentStatus == 'SUCCEEDED' ||
+            paymentStatus == 'SUCCESS';
       }).toList();
     } else if (_selectedStatus == 'Failed') {
+      // Show orders that are cancelled OR have failed payment
       return _orders.where((order) {
         final status = order.orderStatus?.toUpperCase() ?? '';
-        return status == 'CANCELLED';
+        final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
+        return status == 'CANCELLED' ||
+            paymentStatus == 'FAILED' ||
+            paymentStatus == 'REJECTED' ||
+            paymentStatus == 'DECLINED';
       }).toList();
     }
     return _orders;
