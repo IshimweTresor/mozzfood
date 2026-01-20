@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:vuba/response/api_response.dart';
-import '../api/location.api.dart';
 import 'dart:math' as math;
-import '../utils/colors.dart';
-import '../widgets/custom_button.dart';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vuba/response/api_response.dart';
+
+import '../api/location.api.dart';
 import '../api/order.api.dart';
 import '../models/order.model.dart'; // Use your real Order model
-import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/colors.dart';
+import '../widgets/custom_button.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -136,28 +138,31 @@ class _OrdersPageState extends State<OrdersPage> {
         setState(() {
           _isLoading = false;
           if (response.success && response.data != null) {
-            // DEBUG: Log order statuses to help diagnose filtering issues
+            // DEBUG: Log order statuses and ALL timestamps to help diagnose issues
             try {
               for (final o in response.data!) {
                 try {
                   print(
                     '📦 Order ${o.orderId}: orderStatus="${o.orderStatus}" paymentStatus="${o.paymentStatus}"',
                   );
-                  print(
-                    '🕒 Order ${o.orderId} raw orderPlacedAt: ${o.orderPlacedAt}',
-                  );
+                  print('🕒 Order ${o.orderId} raw orderPlacedAt: ${o.orderPlacedAt}');
                   print('🕒 Order ${o.orderId} raw createdAt: ${o.createdAt}');
-                  try {
-                    final parsedCreated =
-                        o.createdAt != null && o.createdAt!.isNotEmpty
-                        ? DateTime.parse(o.createdAt!).toLocal()
-                        : null;
-                    print(
-                      '🕒 Order ${o.orderId} parsed createdAt: $parsedCreated',
-                    );
-                  } catch (_) {}
-                  final parsed = _parseOrderDate(o);
-                  print('🕒 Order ${o.orderId} parsed local datetime: $parsed');
+                  print('🕒 Order ${o.orderId} raw updatedAt: ${o.updatedAt}');
+                  print('🕒 Order ${o.orderId} raw orderConfirmedAt: ${o.orderConfirmedAt}');
+                  print('🕒 Order ${o.orderId} raw cancelledAt: ${o.cancelledAt}');
+                  
+                  // Parse and show what we're actually getting
+                  if (o.updatedAt != null && o.updatedAt!.isNotEmpty) {
+                    try {
+                      final parsed = DateTime.parse(o.updatedAt!);
+                      print('🕒 Order ${o.orderId} parsed updatedAt: $parsed (isUtc: ${parsed.isUtc})');
+                      print('🕒 Current device time: ${DateTime.now()}');
+                      final diff = DateTime.now().difference(parsed.toLocal());
+                      print('🕒 Time difference from updatedAt: ${diff.inMinutes} minutes');
+                    } catch (e) {
+                      print('⚠️ Failed parsing updatedAt: $e');
+                    }
+                  }
                 } catch (e) {
                   print(
                     '⚠️ Failed parsing timestamp for order ${o.orderId}: $e',
@@ -166,44 +171,11 @@ class _OrdersPageState extends State<OrdersPage> {
               }
             } catch (_) {}
 
-            // Filter orders based on selected status
-            _orders = response.data!.where((order) {
-              final orderStatus = order.orderStatus?.toUpperCase() ?? '';
-              final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
-
-              switch (_selectedStatus) {
-                case 'Processing':
-                  // Show orders that are in progress or pending payment
-                  return [
-                        'PENDING',
-                        'PLACED', // ✅ include PLACED here
-                        'PROCESSING',
-                        'PREPARING',
-                        'ON_THE_WAY',
-                      ].contains(orderStatus) ||
-                      ['PENDING', 'PROCESSING'].contains(paymentStatus);
-
-                case 'Completed':
-                  // Show orders that are delivered OR have completed payment
-                  return orderStatus == 'DELIVERED' ||
-                      paymentStatus == 'COMPLETED' ||
-                      paymentStatus == 'SUCCEEDED' ||
-                      paymentStatus == 'SUCCESS';
-
-                case 'Failed':
-                  // Show orders that are cancelled OR have failed payment
-                  return orderStatus == 'CANCELLED' ||
-                      paymentStatus == 'FAILED' ||
-                      paymentStatus == 'REJECTED' ||
-                      paymentStatus == 'DECLINED';
-
-                default:
-                  return true;
-              }
-            }).toList();
+            // Store ALL orders without filtering - filtering happens in _getFilteredOrders()
+            _orders = response.data!;
 
             print(
-              '📦 Found ${_orders.length} orders for status: $_selectedStatus',
+              '📦 Fetched ${_orders.length} total orders',
             );
           } else {
             print('❌ Error: ${response.message}');
@@ -235,32 +207,42 @@ class _OrdersPageState extends State<OrdersPage> {
         final status = order.orderStatus?.toUpperCase() ?? '';
         final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
 
-        return ['PENDING', 'PROCESSING'].contains(paymentStatus) ||
-            status == 'PENDING' ||
-            status == 'PLACED' || // ✅ Added PLACED
-            status == 'ACCEPTED' ||
-            status == 'PREPARING' ||
-            status == 'ON_THE_WAY';
+        // Exclude cancelled/delivered orders first (they belong in other tabs)
+        if (status == 'CANCELLED' || status == 'DELIVERED') {
+          return false;
+        }
+
+        // Include orders that are actively being processed
+        return ['PENDING', 'PLACED', 'ACCEPTED', 'PROCESSING', 'PREPARING', 'ON_THE_WAY'].contains(status) ||
+            ['PENDING', 'PROCESSING'].contains(paymentStatus);
       }).toList();
     } else if (_selectedStatus == 'Completed') {
       // Show orders that are delivered OR have completed payment
       return _orders.where((order) {
         final status = order.orderStatus?.toUpperCase() ?? '';
         final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
+        
+        // Prioritize order status
         return status == 'DELIVERED' ||
-            paymentStatus == 'COMPLETED' ||
-            paymentStatus == 'SUCCEEDED' ||
-            paymentStatus == 'SUCCESS';
+            (status != 'CANCELLED' && (
+              paymentStatus == 'COMPLETED' ||
+              paymentStatus == 'SUCCEEDED' ||
+              paymentStatus == 'SUCCESS'
+            ));
       }).toList();
     } else if (_selectedStatus == 'Failed') {
-      // Show orders that are cancelled OR have failed payment
+      // Show orders that are cancelled OR have failed payment (but not delivered)
       return _orders.where((order) {
         final status = order.orderStatus?.toUpperCase() ?? '';
         final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
+        
+        // Prioritize cancelled status, or failed payment if not delivered
         return status == 'CANCELLED' ||
-            paymentStatus == 'FAILED' ||
-            paymentStatus == 'REJECTED' ||
-            paymentStatus == 'DECLINED';
+            (status != 'DELIVERED' && (
+              paymentStatus == 'FAILED' ||
+              paymentStatus == 'REJECTED' ||
+              paymentStatus == 'DECLINED'
+            ));
       }).toList();
     }
     return _orders;
@@ -848,64 +830,44 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   String _formatDate(DateTime date) {
-    // Use device local time (assumed SAST for Rwanda/Pretoria users).
     final nowLocal = DateTime.now();
-    final localDate = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      date.hour,
-      date.minute,
-      date.second,
-    );
+    final diff = nowLocal.difference(date);
 
     final nowDateOnly = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
-    final dateOnly = DateTime(localDate.year, localDate.month, localDate.day);
+    final dateOnly = DateTime(date.year, date.month, date.day);
     final diffDays = nowDateOnly.difference(dateOnly).inDays;
 
-    final timeStr =
-        '${_twoDigit(localDate.hour)}:${_twoDigit(localDate.minute)}';
-    final diff = nowLocal.difference(localDate);
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
 
     if (diffDays == 0) {
-      if (diff.inHours == 0) {
-        return '${diff.inMinutes} minutes ago ($timeStr SAST)';
-      }
-      return '${diff.inHours} hours ago ($timeStr SAST)';
-    } else if (diffDays == 1) {
-      return 'Yesterday, $timeStr SAST';
-    } else {
-      // If the parsed time is exactly midnight, it's likely the server sent a date-only
-      // value (e.g. "2025-11-29") — show a clean date instead of "00:00 SAST".
-      final isMidnight =
-          localDate.hour == 0 && localDate.minute == 0 && localDate.second == 0;
-      const months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      final monthStr = months[localDate.month - 1];
-      if (isMidnight) {
-        if (localDate.year == nowLocal.year) {
-          return '${_twoDigit(localDate.day)} $monthStr';
-        } else {
-          return '${_twoDigit(localDate.day)} $monthStr ${localDate.year}';
-        }
-      }
-
-      if (localDate.year == nowLocal.year) {
-        return '${_twoDigit(localDate.day)} $monthStr, $timeStr SAST';
+      // Today
+      if (diff.inMinutes < 1) {
+        return 'Just now';
+      } else if (diff.inMinutes == 1) {
+        return '1 minute ago';
+      } else if (diff.inMinutes < 60) {
+        return '${diff.inMinutes} minutes ago';
+      } else if (diff.inHours == 1) {
+        return '1 hour ago';
       } else {
-        return '${_twoDigit(localDate.day)} $monthStr ${localDate.year}, $timeStr SAST';
+        return '${diff.inHours} hours ago';
+      }
+    } else if (diffDays == 1) {
+      // Yesterday
+      final timeStr = '${_twoDigit(date.hour)}:${_twoDigit(date.minute)}';
+      return 'Yesterday, $timeStr';
+    } else {
+      // Older dates
+      final monthStr = months[date.month - 1];
+      final timeStr = '${_twoDigit(date.hour)}:${_twoDigit(date.minute)}';
+      
+      if (date.year == nowLocal.year) {
+        return '${_twoDigit(date.day)} $monthStr, $timeStr';
+      } else {
+        return '${_twoDigit(date.day)} $monthStr ${date.year}, $timeStr';
       }
     }
   }
@@ -948,66 +910,39 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   DateTime _parseOrderDate(Order order) {
-    // Prefer explicit orderPlacedAt (ISO8601) then createdAt, fallback to now
-    // Convert parsed timestamps to Pretoria time (SAST, UTC+2) for consistent display
-    final pretoriaOffset = const Duration(hours: 2);
-
-    DateTime? tryParseToLocal(String raw) {
+    // Parse timestamps from backend
+    // Priority: updatedAt > createdAt > orderPlacedAt
+    
+    DateTime? tryParse(String raw) {
       try {
-        final parsed = DateTime.parse(raw).toLocal();
-        return parsed;
+        final parsed = DateTime.parse(raw);
+        // Convert to local time for display
+        return parsed.toLocal();
       } catch (_) {
         return null;
       }
     }
 
-    // Prefer fields that include time. If orderPlacedAt is date-only (e.g. "2025-11-29"),
-    // prefer createdAt (which often contains the exact timestamp). If neither contains
-    // a time, fall back to the date-only value.
-    if (order.orderPlacedAt != null && order.orderPlacedAt!.isNotEmpty) {
-      final raw = order.orderPlacedAt!;
-      final hasTime = raw.contains('T') || raw.contains(':');
-      if (hasTime) {
-        final dt = tryParseToLocal(raw);
-        if (dt != null) return dt;
-      }
-    }
-
-    if (order.createdAt != null && order.createdAt!.isNotEmpty) {
-      final dt = tryParseToLocal(order.createdAt!);
+    // Try updatedAt first (most recent timestamp)
+    if (order.updatedAt != null && order.updatedAt!.isNotEmpty) {
+      final dt = tryParse(order.updatedAt!);
       if (dt != null) return dt;
     }
 
-    // As a final attempt, use orderPlacedAt even if it was date-only (midnight).
-    if (order.orderPlacedAt != null && order.orderPlacedAt!.isNotEmpty) {
-      final raw = order.orderPlacedAt!;
-      final dt = tryParseToLocal(raw);
-      if (dt != null) {
-        // If server sent a date-only value (e.g. "2025-11-29") and that date
-        // equals today (in device local time), use the current time as a best-effort
-        // approximation so the UI doesn't show 00:00 SAST for a recent order.
-        final hasTime = raw.contains('T') || raw.contains(':');
-        final today = DateTime.now();
-        if (!hasTime &&
-            dt.year == today.year &&
-            dt.month == today.month &&
-            dt.day == today.day) {
-          return DateTime.now();
-        }
-        return dt;
-      }
+    // Then try createdAt
+    if (order.createdAt != null && order.createdAt!.isNotEmpty) {
+      final dt = tryParse(order.createdAt!);
+      if (dt != null) return dt;
     }
 
-    // If parsing failed entirely, return current Pretoria time as fallback
-    final nowPretoria = DateTime.now().toUtc().add(pretoriaOffset);
-    return DateTime(
-      nowPretoria.year,
-      nowPretoria.month,
-      nowPretoria.day,
-      nowPretoria.hour,
-      nowPretoria.minute,
-      nowPretoria.second,
-    );
+    // Finally try orderPlacedAt
+    if (order.orderPlacedAt != null && order.orderPlacedAt!.isNotEmpty) {
+      final dt = tryParse(order.orderPlacedAt!);
+      if (dt != null) return dt;
+    }
+
+    // Fallback to current time if no valid timestamp
+    return DateTime.now();
   }
 
   Color _getStatusColor(Order order) {
