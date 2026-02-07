@@ -202,7 +202,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   List<Order> _getFilteredOrders() {
     if (_selectedStatus == 'Processing') {
-      // Show orders that are pending payment or in progress
+      // Show orders that are pending payment or in progress (not yet paid/delivered or cancelled)
       return _orders.where((order) {
         final status = order.orderStatus?.toUpperCase() ?? '';
         final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
@@ -212,33 +212,44 @@ class _OrdersPageState extends State<OrdersPage> {
           return false;
         }
 
-        // Include orders that are actively being processed
-        return ['PENDING', 'PLACED', 'ACCEPTED', 'PROCESSING', 'PREPARING', 'ON_THE_WAY'].contains(status) ||
+        // Exclude orders with PAID payment status (they go to Completed)
+        if (paymentStatus == 'PAID' || paymentStatus == 'COMPLETED' || paymentStatus == 'SUCCEEDED' || paymentStatus == 'SUCCESS') {
+          return false;
+        }
+
+        // Include orders that are actively being processed with pending payment
+        // This includes: PLACED, CONFIRMED, ACCEPTED, PROCESSING, PREPARING, READY, PICKED_UP, ON_THE_WAY
+        return ['PENDING', 'PLACED', 'CONFIRMED', 'ACCEPTED', 'PROCESSING', 'PREPARING', 'READY', 'PICKED_UP', 'ON_THE_WAY'].contains(status) ||
             ['PENDING', 'PROCESSING'].contains(paymentStatus);
       }).toList();
     } else if (_selectedStatus == 'Completed') {
-      // Show orders that are delivered OR have completed payment
+      // Show orders that are delivered OR have successful payment
       return _orders.where((order) {
         final status = order.orderStatus?.toUpperCase() ?? '';
         final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
         
-        // Prioritize order status
+        // Exclude cancelled orders
+        if (status == 'CANCELLED') {
+          return false;
+        }
+        
+        // Show delivered orders OR orders with successful payment
         return status == 'DELIVERED' ||
-            (status != 'CANCELLED' && (
-              paymentStatus == 'COMPLETED' ||
-              paymentStatus == 'SUCCEEDED' ||
-              paymentStatus == 'SUCCESS'
-            ));
+            paymentStatus == 'PAID' ||
+            paymentStatus == 'COMPLETED' ||
+            paymentStatus == 'SUCCEEDED' ||
+            paymentStatus == 'SUCCESS';
       }).toList();
     } else if (_selectedStatus == 'Failed') {
-      // Show orders that are cancelled OR have failed payment (but not delivered)
+      // Show orders that are cancelled OR have failed payment (but not delivered/paid)
       return _orders.where((order) {
         final status = order.orderStatus?.toUpperCase() ?? '';
         final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
         
-        // Prioritize cancelled status, or failed payment if not delivered
+        // Show cancelled orders or failed payments (but not if delivered or paid)
         return status == 'CANCELLED' ||
-            (status != 'DELIVERED' && (
+            (status != 'DELIVERED' && 
+             !['PAID', 'COMPLETED', 'SUCCEEDED', 'SUCCESS'].contains(paymentStatus) && (
               paymentStatus == 'FAILED' ||
               paymentStatus == 'REJECTED' ||
               paymentStatus == 'DECLINED'
@@ -949,18 +960,26 @@ class _OrdersPageState extends State<OrdersPage> {
     final status = order.orderStatus?.toUpperCase() ?? '';
     final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
 
-    if (paymentStatus == 'PENDING' ||
-        status == 'PENDING' ||
-        status == 'PLACED' ||
-        status == 'PREPARING') {
-      return Colors.orange;
-    }
-    if (status == 'DELIVERED') {
-      return AppColors.success;
-    }
+    // Cancelled orders - red
     if (status == 'CANCELLED') {
       return AppColors.error;
     }
+    
+    // Delivered orders or paid orders - green
+    if (status == 'DELIVERED' || ['PAID', 'COMPLETED', 'SUCCEEDED', 'SUCCESS'].contains(paymentStatus)) {
+      return AppColors.success;
+    }
+    
+    // Active processing states - orange/yellow
+    if (['PENDING', 'PLACED', 'CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP', 'ON_THE_WAY'].contains(status)) {
+      return Colors.orange;
+    }
+    
+    // Failed payment - red
+    if (['FAILED', 'REJECTED', 'DECLINED'].contains(paymentStatus)) {
+      return AppColors.error;
+    }
+    
     return AppColors.textSecondary;
   }
 
@@ -968,18 +987,44 @@ class _OrdersPageState extends State<OrdersPage> {
     final status = order.orderStatus?.toUpperCase() ?? '';
     final paymentStatus = order.paymentStatus?.toUpperCase() ?? '';
 
-    if (paymentStatus == 'PENDING' ||
-        status == 'PENDING' ||
-        status == 'PLACED' ||
-        status == 'PREPARING') {
-      return 'Processing';
+    // Show cancelled status
+    if (status == 'CANCELLED') {
+      return 'Cancelled';
     }
+    
+    // Show delivered status
     if (status == 'DELIVERED') {
+      return 'Delivered';
+    }
+    
+    // Show completed for paid orders
+    if (['PAID', 'COMPLETED', 'SUCCEEDED', 'SUCCESS'].contains(paymentStatus)) {
       return 'Completed';
     }
-    if (status == 'CANCELLED') {
-      return 'Failed';
+    
+    // Show specific processing statuses
+    if (status == 'CONFIRMED') {
+      return 'Confirmed';
     }
+    if (status == 'PREPARING') {
+      return 'Preparing';
+    }
+    if (status == 'READY') {
+      return 'Ready';
+    }
+    if (status == 'PICKED_UP') {
+      return 'Picked Up';
+    }
+    if (status == 'ON_THE_WAY') {
+      return 'On The Way';
+    }
+    
+    // For placed/pending orders, show payment status if relevant
+    if (status == 'PLACED' || status == 'PENDING') {
+      return 'Pending';
+    }
+    
+    // Default fallback
     return order.orderStatus ?? 'Unknown';
   }
 
